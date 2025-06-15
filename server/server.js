@@ -87,6 +87,27 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.userId)
   })
+
+  // Post and comment like events
+  socket.on("joinPost", (postId) => {
+    socket.join(`post:${postId}`)
+    console.log(`User ${socket.userId} joined post ${postId}`)
+  })
+
+  socket.on("leavePost", (postId) => {
+    socket.leave(`post:${postId}`)
+    console.log(`User ${socket.userId} left post ${postId}`)
+  })
+
+  socket.on("postLiked", (data) => {
+    const { postId, liked, likesCount } = data
+    io.to(`post:${postId}`).emit("postLikeUpdate", { postId, liked, likesCount })
+  })
+
+  socket.on("commentLiked", (data) => {
+    const { postId, commentId, liked, likesCount } = data
+    io.to(`post:${postId}`).emit("commentLikeUpdate", { commentId, liked, likesCount })
+  })
 })
 
 // Error handling middleware

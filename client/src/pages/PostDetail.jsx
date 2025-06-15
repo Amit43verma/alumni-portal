@@ -25,12 +25,13 @@ const PostDetail = () => {
     deletePost,
     loadPostLikes,
     loadCommentLikes,
+    initializeSocket,
+    joinPost,
+    leavePost,
   } = usePostStore()
 
   const [commentText, setCommentText] = useState("")
   const [replyTexts, setReplyTexts] = useState({})
-  const [editingComment, setEditingComment] = useState(null)
-  const [editText, setEditText] = useState("")
   const [replyingTo, setReplyingTo] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPostLikes, setShowPostLikes] = useState(false)
@@ -40,8 +41,16 @@ const PostDetail = () => {
   useEffect(() => {
     if (id) {
       loadPost(id)
+      initializeSocket()
+      joinPost(id)
     }
-  }, [id, loadPost])
+
+    return () => {
+      if (id) {
+        leavePost(id)
+      }
+    }
+  }, [id, loadPost, initializeSocket, joinPost, leavePost])
 
   const handleLike = async () => {
     if (currentPost) {
@@ -73,16 +82,6 @@ const PostDetail = () => {
       setExpandedReplies((prev) => new Set([...prev, parentCommentId]))
     }
     setIsSubmitting(false)
-  }
-
-  const handleEditComment = async (commentId) => {
-    if (!editText.trim()) return
-
-    const result = await editComment(commentId, editText)
-    if (result.success) {
-      setEditingComment(null)
-      setEditText("")
-    }
   }
 
   const handleDeleteComment = async (commentId, parentComment = null) => {
@@ -137,6 +136,20 @@ const PostDetail = () => {
 
   const CommentComponent = ({ comment, isReply = false }) => {
     const replyInputRef = useRef(null)
+    const [isEditing, setIsEditing] = useState(false)
+    const [localEditText, setLocalEditText] = useState(comment.text)
+
+    useEffect(() => {
+      setLocalEditText(comment.text)
+    }, [comment.text])
+
+    const handleEdit = async () => {
+      if (!localEditText.trim()) return
+      const result = await editComment(comment._id, localEditText)
+      if (result.success) {
+        setIsEditing(false)
+      }
+    }
 
     return (
       <div className={`${isReply ? "ml-8 border-l-2 border-base-300 pl-4" : ""}`}>
@@ -147,25 +160,26 @@ const PostDetail = () => {
             </div>
           </Link>
           <div className="flex-1">
-            {editingComment === comment._id ? (
+            {isEditing ? (
               <div className="bg-base-200 p-3 rounded-lg">
                 <textarea
-                  value={editText}
-                  onChange={(e) => setEditText(e.target.value)}
+                  value={localEditText}
+                  onChange={(e) => setLocalEditText(e.target.value)}
                   className="textarea textarea-bordered w-full"
                   rows="2"
+                  autoFocus
                 />
                 <div className="flex justify-end space-x-2 mt-2">
                   <button
                     onClick={() => {
-                      setEditingComment(null)
-                      setEditText("")
+                      setIsEditing(false)
+                      setLocalEditText(comment.text)
                     }}
                     className="btn btn-ghost btn-sm"
                   >
                     Cancel
                   </button>
-                  <button onClick={() => handleEditComment(comment._id)} className="btn btn-primary btn-sm">
+                  <button onClick={handleEdit} className="btn btn-primary btn-sm">
                     Save
                   </button>
                 </div>
@@ -185,8 +199,8 @@ const PostDetail = () => {
                         <li>
                           <button
                             onClick={() => {
-                              setEditingComment(comment._id)
-                              setEditText(comment.text)
+                              setIsEditing(true)
+                              setLocalEditText(comment.text)
                             }}
                             className="flex items-center gap-2"
                           >

@@ -10,3 +10,24 @@ client/dist/
 # Ignore environment files
 server/.env
 client/.env
+
+
+
+
+
+# # 
+# i want some other features as well like chat notificatoin on chat icon on navbar and post notification on bell icon on navbar.
+# also chats should be sorted according to the latest chat.
+
+# inside the chat if i click on the photo ,it should open within the height and width of screen. and on clicking back or escape button it should minimised and chat page with the user will be opened.
+
+
+# from any page of project if i refresh the website it directs me to feed page , but it should stay on the same page.
+
+# menu bar and navbar alignment is not balanced, decrease the height of navbar upto height of menu bar.
+
+# On the profile page ,there is a button message, which does not work  . actually this button shows a pop up which says that chat created but it does not direct to chat with that user. It should funtion like similar as in search menu cards, if message button is clicked , chat with that person is opened.
+
+
+
+# under the menu in profile, it should show profile with a button to edit the profile. without clicking that edit button ,under profile section it must show profile which is not editable , editable profile page should be opened only when, edit profile is clicked.

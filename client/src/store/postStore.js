@@ -1,11 +1,14 @@
 import { create } from "zustand"
 import axios from "axios"
 import toast from "react-hot-toast"
+import io from "socket.io-client"
 
 // Use Vite environment variables
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api"
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000"
 
 const usePostStore = create((set, get) => ({
+  socket: null,
   posts: [],
   currentPost: null,
   comments: [],
@@ -14,6 +17,78 @@ const usePostStore = create((set, get) => ({
   loading: false,
   hasMore: true,
   page: 1,
+
+  initializeSocket: () => {
+    const token = localStorage.getItem("token")
+    if (!token) return
+
+    const socket = io(SOCKET_URL, {
+      auth: { token },
+    })
+
+    socket.on("connect", () => {
+      console.log("Connected to post server")
+    })
+
+    socket.on("postLikeUpdate", (data) => {
+      const { postId, liked, likesCount } = data
+      set((state) => ({
+        posts: state.posts.map((post) =>
+          post._id === postId ? { ...post, isLiked: liked, likesCount } : post
+        ),
+        currentPost:
+          state.currentPost?._id === postId
+            ? { ...state.currentPost, isLiked: liked, likesCount }
+            : state.currentPost,
+      }))
+    })
+
+    socket.on("commentLikeUpdate", (data) => {
+      const { commentId, liked, likesCount } = data
+      set((state) => ({
+        comments: state.comments.map((c) => {
+          if (c._id === commentId) {
+            return { ...c, isLiked: liked, likesCount }
+          }
+          if (c.replies) {
+            return {
+              ...c,
+              replies: c.replies.map((r) => (r._id === commentId ? { ...r, isLiked: liked, likesCount } : r)),
+            }
+          }
+          return c
+        }),
+      }))
+    })
+
+    socket.on("error", (error) => {
+      toast.error(error.message || "Post error occurred")
+    })
+
+    set({ socket })
+  },
+
+  disconnectSocket: () => {
+    const { socket } = get()
+    if (socket) {
+      socket.disconnect()
+      set({ socket: null })
+    }
+  },
+
+  joinPost: (postId) => {
+    const { socket } = get()
+    if (socket) {
+      socket.emit("joinPost", postId)
+    }
+  },
+
+  leavePost: (postId) => {
+    const { socket } = get()
+    if (socket) {
+      socket.emit("leavePost", postId)
+    }
+  },
 
   loadFeed: async (page = 1, reset = false) => {
     set({ loading: true })
@@ -87,18 +162,19 @@ const usePostStore = create((set, get) => ({
       const response = await axios.post(`${API_URL}/posts/${postId}/like`)
       const { liked, likesCount } = response.data
 
+      const { socket } = get()
+      if (socket) {
+        socket.emit("postLiked", { postId, liked, likesCount })
+      }
+
       set((state) => ({
         posts: state.posts.map((post) =>
-          post._id === postId
-            ? {
-                ...post,
-                likesCount,
-                isLiked: liked,
-              }
-            : post,
+          post._id === postId ? { ...post, isLiked: liked, likesCount } : post
         ),
         currentPost:
-          state.currentPost?._id === postId ? { ...state.currentPost, likesCount, isLiked: liked } : state.currentPost,
+          state.currentPost?._id === postId
+            ? { ...state.currentPost, isLiked: liked, likesCount }
+            : state.currentPost,
       }))
 
       return { success: true }
@@ -219,6 +295,11 @@ const usePostStore = create((set, get) => ({
     try {
       const response = await axios.post(`${API_URL}/posts/comments/${commentId}/like`)
       const { liked, likesCount } = response.data
+
+      const { socket, currentPost } = get()
+      if (socket && currentPost) {
+        socket.emit("commentLiked", { postId: currentPost._id, commentId, liked, likesCount })
+      }
 
       set((state) => ({
         comments: state.comments.map((c) => {
