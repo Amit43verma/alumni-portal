@@ -2,6 +2,7 @@ import { create } from "zustand"
 import axios from "axios"
 import toast from "react-hot-toast"
 import io from "socket.io-client"
+import { useAuthStore } from "./authStore"
 
 // Use Vite environment variables
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api"
@@ -31,29 +32,33 @@ const usePostStore = create((set, get) => ({
     })
 
     socket.on("postLikeUpdate", (data) => {
-      const { postId, liked, likesCount } = data
+      const { postId, likesCount, likedUserIds } = data
+      const userId = JSON.parse(localStorage.getItem("user"))?.id
       set((state) => ({
         posts: state.posts.map((post) =>
-          post._id === postId ? { ...post, isLiked: liked, likesCount } : post
+          post._id === postId ? { ...post, isLiked: likedUserIds?.includes(userId), likesCount } : post
         ),
         currentPost:
           state.currentPost?._id === postId
-            ? { ...state.currentPost, isLiked: liked, likesCount }
+            ? { ...state.currentPost, isLiked: likedUserIds?.includes(userId), likesCount }
             : state.currentPost,
       }))
     })
 
     socket.on("commentLikeUpdate", (data) => {
-      const { commentId, liked, likesCount } = data
+      const { commentId, likesCount, likedUserIds } = data
+      const userId = JSON.parse(localStorage.getItem("user"))?.id
       set((state) => ({
         comments: state.comments.map((c) => {
           if (c._id === commentId) {
-            return { ...c, isLiked: liked, likesCount }
+            return { ...c, isLiked: likedUserIds?.includes(userId), likesCount }
           }
           if (c.replies) {
             return {
               ...c,
-              replies: c.replies.map((r) => (r._id === commentId ? { ...r, isLiked: liked, likesCount } : r)),
+              replies: c.replies.map((r) =>
+                r._id === commentId ? { ...r, isLiked: likedUserIds?.includes(userId), likesCount } : r
+              ),
             }
           }
           return c
@@ -63,6 +68,61 @@ const usePostStore = create((set, get) => ({
 
     socket.on("error", (error) => {
       toast.error(error.message || "Post error occurred")
+    })
+
+    socket.on("newPost", (post) => {
+      set((state) => {
+        if (state.posts.some((p) => p._id === post._id)) {
+          return {} // Already exists, do nothing
+        }
+        return { posts: [post, ...state.posts] }
+      })
+    })
+
+    socket.on("newComment", ({ comment, parentComment }) => {
+      set((state) => {
+        if (!parentComment) {
+          // New top-level comment
+          if (state.comments.some((c) => c._id === comment._id)) {
+            return {} // Already exists
+          }
+          return { comments: [...state.comments, { ...comment, isLiked: false, replies: [] }] }
+        } else {
+          // New reply to a comment
+          return {
+            comments: state.comments.map((c) => {
+              if (c._id === parentComment) {
+                if ((c.replies || []).some((r) => r._id === comment._id)) {
+                  return c // Already exists
+                }
+                return {
+                  ...c,
+                  replies: [...(c.replies || []), { ...comment, isLiked: false }],
+                  repliesCount: (c.repliesCount || 0) + 1,
+                }
+              }
+              return c
+            }),
+          }
+        }
+      })
+    })
+
+    socket.on("commentEdited", ({ comment }) => {
+      set((state) => ({
+        comments: state.comments.map((c) => {
+          if (c._id === comment._id) {
+            return { ...c, ...comment }
+          }
+          if (c.replies) {
+            return {
+              ...c,
+              replies: c.replies.map((r) => (r._id === comment._id ? { ...r, ...comment } : r)),
+            }
+          }
+          return c
+        }),
+      }))
     })
 
     set({ socket })
@@ -124,12 +184,6 @@ const usePostStore = create((set, get) => ({
           "Content-Type": "multipart/form-data",
         },
       })
-
-      const { post } = response.data
-
-      set((state) => ({
-        posts: [post, ...state.posts],
-      }))
 
       toast.success("Post created successfully!")
       return { success: true }
@@ -226,35 +280,6 @@ const usePostStore = create((set, get) => ({
   addComment: async (postId, text, parentComment = null) => {
     try {
       const response = await axios.post(`${API_URL}/posts/${postId}/comments`, { text, parentComment })
-      const { comment } = response.data
-
-      if (parentComment) {
-        // Add reply to existing comment
-        set((state) => ({
-          comments: state.comments.map((c) =>
-            c._id === parentComment
-              ? {
-                  ...c,
-                  replies: [...(c.replies || []), { ...comment, isLiked: false }],
-                  repliesCount: (c.repliesCount || 0) + 1,
-                }
-              : c,
-          ),
-        }))
-      } else {
-        // Add new top-level comment
-        set((state) => ({
-          comments: [...state.comments, { ...comment, isLiked: false, replies: [] }],
-          posts: state.posts.map((post) =>
-            post._id === postId ? { ...post, commentsCount: post.commentsCount + 1 } : post,
-          ),
-          currentPost:
-            state.currentPost?._id === postId
-              ? { ...state.currentPost, commentsCount: state.currentPost.commentsCount + 1 }
-              : state.currentPost,
-        }))
-      }
-
       return { success: true }
     } catch (error) {
       const message = error.response?.data?.message || "Failed to add comment"
@@ -294,22 +319,25 @@ const usePostStore = create((set, get) => ({
   likeComment: async (commentId) => {
     try {
       const response = await axios.post(`${API_URL}/posts/comments/${commentId}/like`)
-      const { liked, likesCount } = response.data
+      const { liked, likesCount, likedUserIds } = response.data
 
       const { socket, currentPost } = get()
       if (socket && currentPost) {
-        socket.emit("commentLiked", { postId: currentPost._id, commentId, liked, likesCount })
+        socket.emit("commentLiked", { postId: currentPost._id, commentId, liked, likesCount, likedUserIds })
       }
 
+      const userId = JSON.parse(localStorage.getItem("user"))?.id
       set((state) => ({
         comments: state.comments.map((c) => {
           if (c._id === commentId) {
-            return { ...c, isLiked: liked, likesCount }
+            return { ...c, isLiked: likedUserIds?.includes(userId), likesCount }
           }
           if (c.replies) {
             return {
               ...c,
-              replies: c.replies.map((r) => (r._id === commentId ? { ...r, isLiked: liked, likesCount } : r)),
+              replies: c.replies.map((r) =>
+                r._id === commentId ? { ...r, isLiked: likedUserIds?.includes(userId), likesCount } : r
+              ),
             }
           }
           return c

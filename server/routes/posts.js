@@ -6,6 +6,8 @@ const upload = require("../middleware/upload")
 
 const router = express.Router()
 
+const getIO = (req) => req.app.get('io')
+
 // Create post
 router.post("/", authenticate, upload.array("media", 5), async (req, res) => {
   try {
@@ -26,6 +28,9 @@ router.post("/", authenticate, upload.array("media", 5), async (req, res) => {
 
     await post.save()
     await post.populate("author", "name avatarUrl batch center")
+
+    const io = getIO(req)
+    if (io) io.emit('newPost', post)
 
     res.status(201).json({ post })
   } catch (error) {
@@ -196,6 +201,7 @@ router.post("/:id/like", authenticate, async (req, res) => {
     res.json({
       liked: !isLiked,
       likesCount: post.likesCount,
+      likedUserIds: post.likes.map((id) => id.toString()),
     })
   } catch (error) {
     console.error("Like post error:", error)
@@ -233,6 +239,9 @@ router.post("/:id/comments", authenticate, async (req, res) => {
       await post.save()
     }
 
+    const io = getIO(req)
+    if (io) io.to(`post:${req.params.id}`).emit('newComment', { comment, parentComment })
+
     res.status(201).json({ comment })
   } catch (error) {
     console.error("Add comment error:", error)
@@ -261,6 +270,10 @@ router.put("/comments/:id", authenticate, async (req, res) => {
 
     await comment.populate("author", "name avatarUrl")
 
+    // Emit real-time event for comment edit
+    const io = getIO(req)
+    if (io) io.to(`post:${comment.postId}`).emit('commentEdited', { comment })
+
     res.json({ comment })
   } catch (error) {
     console.error("Edit comment error:", error)
@@ -287,9 +300,11 @@ router.post("/comments/:id/like", authenticate, async (req, res) => {
 
     await comment.save()
 
+    // Return the list of user IDs who liked the comment
     res.json({
       liked: !isLiked,
       likesCount: comment.likesCount,
+      likedUserIds: comment.likes.map((id) => id.toString()),
     })
   } catch (error) {
     console.error("Like comment error:", error)

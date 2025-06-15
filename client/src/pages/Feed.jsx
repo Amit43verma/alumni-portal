@@ -8,7 +8,7 @@ import { useAuthStore } from "../store/authStore"
 import PostComposer from "../components/PostComposer"
 
 const Feed = () => {
-  const { posts, loading, hasMore, loadFeed, likePost, deletePost, loadPostLikes, postLikes } = usePostStore()
+  const { posts, loading, hasMore, loadFeed, likePost, deletePost, loadPostLikes, postLikes, joinPost } = usePostStore()
   const { user } = useAuthStore()
   const [page, setPage] = useState(1)
   const [showLikesModal, setShowLikesModal] = useState(null)
@@ -16,6 +16,12 @@ const Feed = () => {
   useEffect(() => {
     loadFeed(1, true)
   }, [loadFeed])
+
+  useEffect(() => {
+    posts.forEach((post) => {
+      joinPost(post._id)
+    })
+  }, [posts, joinPost])
 
   const handleLoadMore = () => {
     if (!loading && hasMore) {
@@ -42,13 +48,13 @@ const Feed = () => {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString)
-    const now = new Date()
-    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60))
-
-    if (diffInHours < 1) return "Just now"
-    if (diffInHours < 24) return `${diffInHours}h ago`
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`
-    return date.toLocaleDateString()
+    return date.toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+    })
   }
 
   return (

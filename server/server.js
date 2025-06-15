@@ -10,6 +10,8 @@ const userRoutes = require("./routes/users")
 const postRoutes = require("./routes/posts")
 const chatRoutes = require("./routes/chat")
 const { authenticateSocket } = require("./middleware/auth")
+const Post = require("./models/Post")
+const Comment = require("./models/Comment")
 
 const app = express()
 const httpServer = createServer(app)
@@ -38,6 +40,9 @@ app.use("/api/auth", authRoutes)
 app.use("/api/users", userRoutes)
 app.use("/api/posts", postRoutes)
 app.use("/api/chat", chatRoutes)
+
+// Attach io to app for access in routes
+app.set('io', io)
 
 // Socket.io connection handling
 io.use(authenticateSocket)
@@ -99,14 +104,28 @@ io.on("connection", (socket) => {
     console.log(`User ${socket.userId} left post ${postId}`)
   })
 
-  socket.on("postLiked", (data) => {
-    const { postId, liked, likesCount } = data
-    io.to(`post:${postId}`).emit("postLikeUpdate", { postId, liked, likesCount })
+  socket.on("postLiked", async (data) => {
+    const { postId } = data
+    try {
+      const post = await Post.findById(postId)
+      const likedUserIds = post.likes.map(id => id.toString())
+      const likesCount = post.likes.length
+      io.to(`post:${postId}`).emit("postLikeUpdate", { postId, likesCount, likedUserIds })
+    } catch (err) {
+      console.error("Error in postLiked socket event:", err)
+    }
   })
 
-  socket.on("commentLiked", (data) => {
-    const { postId, commentId, liked, likesCount } = data
-    io.to(`post:${postId}`).emit("commentLikeUpdate", { commentId, liked, likesCount })
+  socket.on("commentLiked", async (data) => {
+    const { commentId, postId } = data
+    try {
+      const comment = await Comment.findById(commentId)
+      const likedUserIds = comment.likes.map(id => id.toString())
+      const likesCount = comment.likes.length
+      io.to(`post:${postId}`).emit("commentLikeUpdate", { commentId, likesCount, likedUserIds })
+    } catch (err) {
+      console.error("Error in commentLiked socket event:", err)
+    }
   })
 })
 

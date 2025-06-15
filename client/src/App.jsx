@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { Toaster } from "react-hot-toast"
 import { useAuthStore } from "./store/authStore"
 import { useChatStore } from "./store/chatStore"
+import { usePostStore } from "./store/postStore"
 
 // Components
 import Layout from "./components/Layout"
@@ -31,7 +32,8 @@ const LoadingPage = () => (
 
 function App() {
   const { loadFromStorage, user } = useAuthStore()
-  const { initializeSocket, disconnectSocket } = useChatStore()
+  const { initializeSocket: initializeChatSocket, disconnectSocket: disconnectChatSocket } = useChatStore()
+  const { initializeSocket: initializePostSocket, disconnectSocket: disconnectPostSocket } = usePostStore()
 
   useEffect(() => {
     loadFromStorage()
@@ -39,15 +41,18 @@ function App() {
 
   useEffect(() => {
     if (user) {
-      initializeSocket()
+      initializeChatSocket()
+      initializePostSocket()
     } else {
-      disconnectSocket()
+      disconnectChatSocket()
+      disconnectPostSocket()
     }
 
     return () => {
-      disconnectSocket()
+      disconnectChatSocket()
+      disconnectPostSocket()
     }
-  }, [user, initializeSocket, disconnectSocket])
+  }, [user, initializeChatSocket, disconnectChatSocket, initializePostSocket, disconnectPostSocket])
 
   return (
     <div className="min-h-screen bg-base-100">

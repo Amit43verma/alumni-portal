@@ -25,7 +25,6 @@ const PostDetail = () => {
     deletePost,
     loadPostLikes,
     loadCommentLikes,
-    initializeSocket,
     joinPost,
     leavePost,
   } = usePostStore()
@@ -41,7 +40,6 @@ const PostDetail = () => {
   useEffect(() => {
     if (id) {
       loadPost(id)
-      initializeSocket()
       joinPost(id)
     }
 
@@ -50,7 +48,7 @@ const PostDetail = () => {
         leavePost(id)
       }
     }
-  }, [id, loadPost, initializeSocket, joinPost, leavePost])
+  }, [id, loadPost, joinPost, leavePost])
 
   const handleLike = async () => {
     if (currentPost) {
