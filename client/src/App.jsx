@@ -1,0 +1,96 @@
+"use client"
+
+import { useEffect, lazy, Suspense } from "react"
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
+import { Toaster } from "react-hot-toast"
+import { useAuthStore } from "./store/authStore"
+import { useChatStore } from "./store/chatStore"
+
+// Components
+import Layout from "./components/Layout"
+import ProtectedRoute from "./components/ProtectedRoute"
+
+// Lazy load pages for better performance
+const Login = lazy(() => import("./pages/Login"))
+const Signup = lazy(() => import("./pages/Signup"))
+const Feed = lazy(() => import("./pages/Feed"))
+const PostDetail = lazy(() => import("./pages/PostDetail"))
+const Profile = lazy(() => import("./pages/Profile"))
+const EditProfile = lazy(() => import("./pages/EditProfile"))
+const ChatList = lazy(() => import("./pages/ChatList"))
+const ChatRoom = lazy(() => import("./pages/ChatRoom"))
+const Groups = lazy(() => import("./pages/Groups"))
+const Search = lazy(() => import("./pages/Search"))
+
+// Loading component
+const LoadingPage = () => (
+  <div className="flex justify-center items-center min-h-screen">
+    <span className="loading loading-spinner loading-lg"></span>
+  </div>
+)
+
+function App() {
+  const { loadFromStorage, user } = useAuthStore()
+  const { initializeSocket, disconnectSocket } = useChatStore()
+
+  useEffect(() => {
+    loadFromStorage()
+  }, [loadFromStorage])
+
+  useEffect(() => {
+    if (user) {
+      initializeSocket()
+    } else {
+      disconnectSocket()
+    }
+
+    return () => {
+      disconnectSocket()
+    }
+  }, [user, initializeSocket, disconnectSocket])
+
+  return (
+    <div className="min-h-screen bg-base-100">
+      <Router>
+        <Suspense fallback={<LoadingPage />}>
+          <Routes>
+            <Route path="/login" element={user ? <Navigate to="/feed" /> : <Login />} />
+            <Route path="/signup" element={user ? <Navigate to="/feed" /> : <Signup />} />
+
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="/feed" />} />
+              <Route path="feed" element={<Feed />} />
+              <Route path="post/:id" element={<PostDetail />} />
+              <Route path="profile/:id" element={<Profile />} />
+              <Route path="edit-profile" element={<EditProfile />} />
+              <Route path="chat" element={<ChatList />} />
+              <Route path="chat/:roomId" element={<ChatRoom />} />
+              <Route path="groups" element={<Groups />} />
+              <Route path="search" element={<Search />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </Router>
+
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: "var(--fallback-b1,oklch(var(--b1)/1))",
+            color: "var(--fallback-bc,oklch(var(--bc)/1))",
+          },
+        }}
+      />
+    </div>
+  )
+}
+
+export default App
