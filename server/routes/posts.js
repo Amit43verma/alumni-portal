@@ -357,6 +357,10 @@ router.delete("/comments/:id", authenticate, async (req, res) => {
       await post.save()
     }
 
+    // Emit real-time event for comment deletion
+    const io = getIO(req)
+    if (io) io.to(`post:${comment.postId}`).emit('commentDeleted', { commentId: comment._id, parentComment: comment.parentComment })
+
     res.json({ message: "Comment deleted successfully" })
   } catch (error) {
     console.error("Delete comment error:", error)

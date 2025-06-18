@@ -125,6 +125,31 @@ const usePostStore = create((set, get) => ({
       }))
     })
 
+    // Real-time comment deletion
+    socket.on("commentDeleted", ({ commentId, parentComment }) => {
+      set((state) => {
+        if (parentComment) {
+          // Remove reply from parent comment
+          return {
+            comments: state.comments.map((c) =>
+              c._id === parentComment
+                ? {
+                    ...c,
+                    replies: c.replies.filter((r) => r._id !== commentId),
+                    repliesCount: Math.max(0, (c.repliesCount || 0) - 1),
+                  }
+                : c
+            ),
+          }
+        } else {
+          // Remove top-level comment
+          return {
+            comments: state.comments.filter((comment) => comment._id !== commentId),
+          }
+        }
+      })
+    })
+
     set({ socket })
   },
 
