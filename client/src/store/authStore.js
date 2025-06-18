@@ -130,21 +130,30 @@ const useAuthStore = create((set, get) => ({
     toast.success("Logged out successfully")
   },
 
-  loadFromStorage: () => {
+  loadFromStorage: async () => {
+    set({ loading: true })
     const token = localStorage.getItem("token")
     const user = localStorage.getItem("user")
 
-    if (token && user) {
-      try {
-        const parsedUser = JSON.parse(user)
-        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`
-        set({ user: parsedUser, token })
-      } catch (error) {
-        console.error("Error parsing stored user data:", error)
-        localStorage.removeItem("token")
-        localStorage.removeItem("user")
+    return new Promise((resolve) => {
+      if (token && user) {
+        try {
+          const parsedUser = JSON.parse(user)
+          axios.defaults.headers.common["Authorization"] = `Bearer ${token}`
+          set({ user: parsedUser, token, loading: false })
+          resolve()
+        } catch (error) {
+          console.error("Error parsing stored user data:", error)
+          localStorage.removeItem("token")
+          localStorage.removeItem("user")
+          set({ loading: false })
+          resolve()
+        }
+      } else {
+        set({ loading: false })
+        resolve()
       }
-    }
+    })
   },
 
   updateUser: (userData) => {

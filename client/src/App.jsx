@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, lazy, Suspense } from "react"
+import { useEffect, useState, lazy, Suspense } from "react"
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
 import { Toaster } from "react-hot-toast"
 import { useAuthStore } from "./store/authStore"
@@ -34,9 +34,10 @@ function App() {
   const { loadFromStorage, user } = useAuthStore()
   const { initializeSocket: initializeChatSocket, disconnectSocket: disconnectChatSocket } = useChatStore()
   const { initializeSocket: initializePostSocket, disconnectSocket: disconnectPostSocket } = usePostStore()
+  const [authLoaded, setAuthLoaded] = useState(false)
 
   useEffect(() => {
-    loadFromStorage()
+    loadFromStorage().then(() => setAuthLoaded(true))
   }, [loadFromStorage])
 
   useEffect(() => {
@@ -53,6 +54,10 @@ function App() {
       disconnectPostSocket()
     }
   }, [user, initializeChatSocket, disconnectChatSocket, initializePostSocket, disconnectPostSocket])
+
+  if (!authLoaded) {
+    return <LoadingPage />
+  }
 
   return (
     <div className="min-h-screen bg-base-100">

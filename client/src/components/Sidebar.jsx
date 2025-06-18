@@ -18,8 +18,8 @@ const Sidebar = ({ onClose }) => {
   return (
     <div className="h-full flex flex-col bg-base-200">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-base-300">
-        <h2 className="text-lg font-semibold">Menu</h2>
+      <div className="h-14 flex items-center justify-between px-4 border-b border-base-300">
+        <h2 className="text-lg font-semibold m-0">Menu</h2>
         <button onClick={onClose} className="lg:hidden btn btn-ghost btn-sm">
           <X size={20} />
         </button>

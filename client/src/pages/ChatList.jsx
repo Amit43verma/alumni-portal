@@ -9,7 +9,7 @@ import { useAuthStore } from "../store/authStore"
 
 const ChatList = () => {
   const { user } = useAuthStore()
-  const { rooms, loading, loadRooms, createRoom } = useChatStore()
+  const { rooms, loading, loadRooms, createRoom, unreadCounts } = useChatStore()
   const { searchUsers, searchResults } = useUserStore()
   const [showNewChat, setShowNewChat] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -90,6 +90,13 @@ const ChatList = () => {
     if (room.isGroup) return null
     return room.members.find((member) => member._id !== user?.id)
   }
+
+  // Sort rooms by latest message or updatedAt
+  const sortedRooms = [...rooms].sort((a, b) => {
+    const aTime = a.lastMessage?.createdAt || a.updatedAt || 0
+    const bTime = b.lastMessage?.createdAt || b.updatedAt || 0
+    return new Date(bTime) - new Date(aTime)
+  })
 
   return (
     <div className="card bg-base-100 shadow-lg">
@@ -213,14 +220,14 @@ const ChatList = () => {
           <div className="flex justify-center items-center py-12">
             <span className="loading loading-spinner loading-lg"></span>
           </div>
-        ) : rooms.length === 0 ? (
+        ) : sortedRooms.length === 0 ? (
           <div className="text-center py-12 text-base-content/60">
             <p>No conversations yet</p>
             <p className="mt-2">Start a new chat to connect with alumni</p>
           </div>
         ) : (
           <div className="divide-y divide-base-300">
-            {rooms.map((room) => {
+            {sortedRooms.map((room) => {
               const otherUser = getOtherUser(room)
               return (
                 <Link
@@ -247,6 +254,9 @@ const ChatList = () => {
                       </span>
                     </div>
                     <p className="text-sm text-base-content/70 line-clamp-1">{formatLastMessage(room)}</p>
+                    {unreadCounts[room._id] > 0 && (
+                      <span className="badge badge-error badge-sm ml-2">{unreadCounts[room._id]}</span>
+                    )}
                   </div>
                 </Link>
               )

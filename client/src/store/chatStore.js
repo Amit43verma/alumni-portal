@@ -14,6 +14,7 @@ const useChatStore = create((set, get) => ({
   messages: [],
   onlineUsers: new Set(),
   loading: false,
+  unreadCounts: {},
 
   initializeSocket: () => {
     const token = localStorage.getItem("token")
@@ -38,12 +39,23 @@ const useChatStore = create((set, get) => ({
         return state
       })
 
-      // Update room's last message
-      set((state) => ({
-        rooms: state.rooms.map((room) =>
-          room._id === message.roomId ? { ...room, lastMessage: message, updatedAt: new Date() } : room,
-        ),
-      }))
+      // Update room's last message and unread count
+      set((state) => {
+        const isCurrentRoom = state.currentRoom && message.roomId === state.currentRoom._id
+        const newCount = isCurrentRoom
+          ? 0
+          : (state.unreadCounts[message.roomId] || 0) + 1
+        console.log(`newMessage for room ${message.roomId}, isCurrentRoom: ${isCurrentRoom}, newCount: ${newCount}`)
+        return {
+          rooms: state.rooms.map((room) =>
+            room._id === message.roomId ? { ...room, lastMessage: message, updatedAt: new Date() } : room,
+          ),
+          unreadCounts: {
+            ...state.unreadCounts,
+            [message.roomId]: newCount,
+          },
+        }
+      })
     })
 
     socket.on("userOnline", (userId) => {
@@ -79,7 +91,13 @@ const useChatStore = create((set, get) => ({
     set({ loading: true })
     try {
       const response = await axios.get(`${API_URL}/chat/rooms`)
-      set({ rooms: response.data.rooms, loading: false })
+      const rooms = response.data.rooms
+      // Initialize unreadCounts for all rooms if not present
+      const unreadCounts = {}
+      rooms.forEach(room => {
+        unreadCounts[room._id] = get().unreadCounts[room._id] || 0
+      })
+      set({ rooms, loading: false, unreadCounts })
     } catch (error) {
       set({ loading: false })
       toast.error("Failed to load chat rooms")
@@ -109,12 +127,13 @@ const useChatStore = create((set, get) => ({
   },
 
   joinRoom: (roomId) => {
-    const { socket, rooms } = get()
+    const { socket, rooms, unreadCounts } = get()
     const room = rooms.find((r) => r._id === roomId)
 
     if (socket && room) {
       socket.emit("joinRoom", roomId)
-      set({ currentRoom: room, messages: [] })
+      console.log(`joinRoom: resetting unread count for room ${roomId}`)
+      set({ currentRoom: room, messages: [], unreadCounts: { ...unreadCounts, [roomId]: 0 } })
       get().loadMessages(roomId)
     }
   },

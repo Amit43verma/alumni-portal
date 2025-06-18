@@ -173,6 +173,32 @@ const ChatRoom = () => {
 
   const otherUser = getOtherUser()
 
+  // Handle Escape key and browser back for expanded media
+  useEffect(() => {
+    if (!expandedMedia) return
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setExpandedMedia(null)
+      }
+    }
+    const handlePopState = () => {
+      setExpandedMedia(null)
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    window.addEventListener("popstate", handlePopState)
+    // Push a new state to history so back button closes modal
+    window.history.pushState({ expandedMedia: true }, "")
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      window.removeEventListener("popstate", handlePopState)
+      // Only go back if modal is still open (prevents double pop)
+      if (window.history.state && window.history.state.expandedMedia) {
+        window.history.back()
+      }
+    }
+  }, [expandedMedia])
+
   if (loading && !currentRoom) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
@@ -496,17 +522,17 @@ const ChatRoom = () => {
       {/* Expanded Media Modal */}
       {expandedMedia && (
         <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4">
-          <div className="relative max-w-4xl max-h-full">
+          <div className="relative w-full h-full flex items-center justify-center">
             <button
               onClick={() => setExpandedMedia(null)}
-              className="absolute -top-10 right-0 btn btn-circle btn-ghost text-white"
+              className="absolute top-4 right-4 btn btn-circle btn-ghost text-white z-10"
             >
               <X size={24} />
             </button>
             {expandedMedia.includes(".mp4") || expandedMedia.includes(".mov") || expandedMedia.includes(".avi") ? (
-              <video src={expandedMedia} controls className="max-w-full max-h-full" />
+              <video src={expandedMedia} controls className="max-w-screen max-h-screen" />
             ) : (
-              <img src={expandedMedia || "/placeholder.svg"} alt="Expanded media" className="max-w-full max-h-full" />
+              <img src={expandedMedia || "/placeholder.svg"} alt="Expanded media" className="max-w-screen max-h-screen object-contain" />
             )}
           </div>
         </div>

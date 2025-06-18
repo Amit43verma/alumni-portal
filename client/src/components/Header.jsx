@@ -55,8 +55,8 @@ const Header = ({ onMenuClick }) => {
   }
 
   return (
-    <header className="bg-base-200 border-b border-base-300 px-4 py-3 relative z-40">
-      <div className="flex items-center justify-between">
+    <header className="bg-base-200 border-b border-base-300 h-14 flex items-center justify-center px-4 relative z-40">
+      <div className="flex items-center justify-between w-full">
         {/* Left side */}
         <div className="flex items-center space-x-4">
           <button onClick={onMenuClick} className="lg:hidden btn btn-ghost btn-sm">
@@ -75,7 +75,7 @@ const Header = ({ onMenuClick }) => {
             <input
               type="text"
               placeholder="Search alumni..."
-              className="input input-bordered w-full pl-10 border-base-300 focus:border-primary"
+              className="input rounded-full input-bordered h-10 w-full pl-10 border-base-300 focus:border-primary"
               value={searchQuery}
               onChange={handleInputChange}
               onFocus={() => searchQuery && setShowSearchResults(true)}
