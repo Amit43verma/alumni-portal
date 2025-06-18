@@ -5,13 +5,14 @@ import { Home, MessageCircle, Users, Search, User, X } from "lucide-react"
 
 const Sidebar = ({ onClose }) => {
   const location = useLocation()
+  const userId = localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user")).id : null
 
   const menuItems = [
     { path: "/feed", icon: Home, label: "Feed" },
     { path: "/chat", icon: MessageCircle, label: "Messages" },
     { path: "/groups", icon: Users, label: "Groups" },
     { path: "/search", icon: Search, label: "Search" },
-    { path: "/edit-profile", icon: User, label: "Profile" },
+    { path: userId ? `/profile/${userId}` : "/login", icon: User, label: "Profile" },
   ]
 
   return (

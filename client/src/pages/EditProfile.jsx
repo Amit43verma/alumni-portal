@@ -40,6 +40,19 @@ const EditProfile = () => {
     }
   }, [user?.id, loadProfile])
 
+  // Redirect if not the owner
+  useEffect(() => {
+    if (currentProfile && user && currentProfile._id !== user.id) {
+      setNotification({
+        type: "error",
+        message: "You are not authorized to edit this profile.",
+      })
+      setTimeout(() => {
+        navigate("/feed")
+      }, 2000)
+    }
+  }, [currentProfile, user, navigate])
+
   useEffect(() => {
     if (currentProfile) {
       setValue("name", currentProfile.name)

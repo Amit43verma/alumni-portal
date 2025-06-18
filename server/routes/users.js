@@ -39,7 +39,7 @@ router.get("/", authenticate, async (req, res) => {
 // Get user profile
 router.get("/:id", authenticate, async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select("-passwordHash").populate("experiences")
+    const user = await User.findById(req.params.id).select("-passwordHash")
 
     if (!user) {
       return res.status(404).json({ message: "User not found" })
@@ -69,6 +69,17 @@ router.put("/:id", authenticate, upload.single("avatar"), async (req, res) => {
     // Parse experiences if it's a string
     if (updates.experiences && typeof updates.experiences === "string") {
       updates.experiences = JSON.parse(updates.experiences)
+    }
+
+    // Remove 'id' and ensure '_id' is a string for experiences
+    if (Array.isArray(updates.experiences)) {
+      updates.experiences = updates.experiences.map(exp => {
+        const { id, ...rest } = exp;
+        if (rest._id && typeof rest._id !== 'string') {
+          delete rest._id;
+        }
+        return rest;
+      });
     }
 
     // Parse skills if it's a string

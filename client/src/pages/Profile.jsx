@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, Link } from "react-router-dom"
+import { useParams, Link, useNavigate } from "react-router-dom"
 import { Mail, Phone, MapPin, Calendar, Edit, Github, Linkedin, Twitter, MessageCircle, Heart } from "lucide-react"
 import { useUserStore } from "../store/userStore"
 import { useAuthStore } from "../store/authStore"
@@ -9,6 +9,7 @@ import { useChatStore } from "../store/chatStore"
 
 const Profile = () => {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { currentProfile, loading, loadProfile } = useUserStore()
   const { user } = useAuthStore()
   const { createRoom } = useChatStore()
@@ -50,13 +51,7 @@ const Profile = () => {
     try {
       const result = await createRoom("", [currentProfile._id], false)
       if (result.success) {
-        setNotification({
-          type: "success",
-          message: "Chat created successfully!",
-        })
-        setTimeout(() => {
-          window.location.href = `/chat/${result.room._id}`
-        }, 1000)
+        navigate(`/chat/${result.room._id}`)
       }
     } catch (error) {
       setNotification({
