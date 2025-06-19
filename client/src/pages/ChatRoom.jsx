@@ -32,6 +32,8 @@ const ChatRoom = () => {
     loadMessages,
     addMembersToGroup,
     leaveGroup,
+    rooms,
+    loadRooms,
   } = useChatStore()
   const { searchUsers, searchResults } = useUserStore()
   const [messageText, setMessageText] = useState("")
@@ -44,19 +46,48 @@ const ChatRoom = () => {
   const [notification, setNotification] = useState(null)
   const [expandedMedia, setExpandedMedia] = useState(null)
   const messagesEndRef = useRef(null)
+  const chatContainerRef = useRef(null)
+  const shouldScrollToBottomRef = useRef(true)
 
+  // 1. Ensure rooms are loaded
   useEffect(() => {
-    joinRoom(roomId)
-    return () => leaveRoom()
-  }, [roomId, joinRoom, leaveRoom])
+    if (!rooms.length) {
+      loadRooms();
+    }
+  }, [rooms.length, loadRooms]);
 
+  // 2. Join room and load messages when rooms are loaded and roomId changes
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    if (!rooms.length) return;
+    const room = rooms.find((r) => r._id === roomId);
+    if (room) {
+      joinRoom(roomId);
+      loadMessages(roomId);
+    }
+    return () => leaveRoom();
+  }, [roomId, rooms.length, joinRoom, leaveRoom, loadMessages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  // Track if user is at the bottom
+  const handleScroll = () => {
+    const container = chatContainerRef.current
+    if (!container) return
+    const threshold = 80 // px
+    shouldScrollToBottomRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
   }
+
+  useEffect(() => {
+    const container = chatContainerRef.current
+    if (!container) return
+    container.addEventListener('scroll', handleScroll)
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  useEffect(() => {
+    // Only scroll to bottom if user was at the bottom or just sent a message
+    if (shouldScrollToBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages])
 
   const handleMediaSelect = (e) => {
     const file = e.target.files[0]
@@ -85,6 +116,8 @@ const ChatRoom = () => {
       setMessageText("")
       setMediaFile(null)
       setMediaPreview(null)
+      // Always scroll to bottom after sending
+      shouldScrollToBottomRef.current = true
     } catch (error) {
       setNotification({
         type: "error",
@@ -199,10 +232,20 @@ const ChatRoom = () => {
     }
   }, [expandedMedia])
 
-  if (loading && !currentRoom) {
+  const room = rooms.find((r) => r._id === roomId)
+  if (loading || !rooms.length) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
         <span className="loading loading-spinner loading-lg"></span>
+      </div>
+    )
+  }
+  if (!room) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-[60vh] text-center">
+        <div className="text-2xl font-bold mb-2">Room not found</div>
+        <div className="text-base-content/60 mb-4">The chat room you are looking for does not exist or you do not have access.</div>
+        <button className="btn btn-primary" onClick={() => navigate('/chat')}>Go to Messages</button>
       </div>
     )
   }
@@ -309,8 +352,12 @@ const ChatRoom = () => {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 bg-base-50">
-        {messages.length === 0 ? (
+      <div className="flex-1 overflow-y-auto p-4 bg-base-50" ref={chatContainerRef}>
+        {loading ? (
+          <div className="flex justify-center items-center h-full">
+            <span className="loading loading-spinner loading-lg"></span>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-base-content/60">
             <div className="avatar">
               <div className="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center">

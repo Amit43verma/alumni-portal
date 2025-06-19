@@ -148,14 +148,18 @@ const useChatStore = create((set, get) => ({
   },
 
   loadMessages: async (roomId, page = 1) => {
+    set({ loading: true })
     try {
+      // Yes, there is a limit of 50 messages per page when loading messages.
       const response = await axios.get(`${API_URL}/chat/rooms/${roomId}/messages?page=${page}&limit=50`)
       const { messages } = response.data
 
       set((state) => ({
         messages: page === 1 ? messages : [...messages, ...state.messages],
+        loading: false,
       }))
     } catch (error) {
+      set({ loading: false })
       toast.error("Failed to load messages")
     }
   },
