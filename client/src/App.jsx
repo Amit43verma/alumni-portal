@@ -22,6 +22,7 @@ const ChatList = lazy(() => import("./pages/ChatList"))
 const ChatRoom = lazy(() => import("./pages/ChatRoom"))
 const Groups = lazy(() => import("./pages/Groups"))
 const Search = lazy(() => import("./pages/Search"))
+const OtpVerification = lazy(() => import("./pages/OtpVerification"))
 
 // Loading component
 const LoadingPage = () => (
@@ -66,6 +67,7 @@ function App() {
           <Routes>
             <Route path="/login" element={user ? <Navigate to="/feed" /> : <Login />} />
             <Route path="/signup" element={user ? <Navigate to="/feed" /> : <Signup />} />
+            <Route path="/verify-otp" element={<OtpVerification />} />
 
             <Route
               path="/"

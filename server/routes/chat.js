@@ -157,7 +157,7 @@ router.post("/rooms/:roomId/members", authenticate, async (req, res) => {
 
     const room = await ChatRoom.findOne({
       _id: roomId,
-      admin: req.user._id,
+      members: req.user._id,
       isGroup: true,
     })
 

@@ -1,13 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import { Eye, EyeOff, Mail, Phone } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
 
 const Signup = () => {
   const { signup, loading } = useAuthStore()
+  const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [contactType, setContactType] = useState("email") // 'email' or 'phone'
@@ -31,12 +32,17 @@ const Signup = () => {
     if (contactType === "email") {
       userData.email = data.contact
     } else {
-      userData.phone = data.contact
+      // For now, we only support email verification
+      alert("Phone number signup is not supported yet for OTP verification.")
+      return
     }
 
     const result = await signup(userData)
-    if (!result.success) {
+    if (result.success) {
+      navigate("/verify-otp", { state: { email: userData.email } })
+    } else {
       console.error("Signup failed:", result.message)
+      // Display error to user
     }
   }
 
@@ -95,9 +101,10 @@ const Signup = () => {
                 <button
                   type="button"
                   onClick={() => setContactType("phone")}
+                  disabled // Disable phone option for now
                   className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-colors ${
                     contactType === "phone" ? "bg-base-100 shadow-sm" : ""
-                  }`}
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   <Phone size={16} />
                   <span>Phone</span>

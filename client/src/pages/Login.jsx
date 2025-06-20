@@ -1,13 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import { Eye, EyeOff, Mail, Phone } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
 
 const Login = () => {
   const { login, googleAuth, loading } = useAuthStore()
+  const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [loginType, setLoginType] = useState("email") // 'email' or 'phone'
 
@@ -19,7 +20,9 @@ const Login = () => {
 
   const onSubmit = async (data) => {
     const result = await login(data.identifier, data.password)
-    if (!result.success) {
+    if (result.notVerified) {
+      navigate("/verify-otp", { state: { email: result.email } })
+    } else if (!result.success) {
       console.error("Login failed:", result.message)
     }
   }

@@ -1,7 +1,9 @@
 const express = require("express")
 const jwt = require("jsonwebtoken")
 const { OAuth2Client } = require("google-auth-library")
+const otpGenerator = require("otp-generator")
 const User = require("../models/User")
+const sendEmail = require("../utils/email")
 const { authenticate } = require("../middleware/auth")
 
 const router = express.Router()
@@ -19,36 +21,101 @@ router.post("/signup", async (req, res) => {
 
     // Validate required fields
     if (!name || !password || !batch || !center) {
-      return res.status(400).json({ message: "Name, password, batch, and center are required" })
+      return res
+        .status(400)
+        .json({ message: "Name, password, batch, and center are required" })
     }
 
-    if (!email && !phone) {
-      return res.status(400).json({ message: "Either email or phone number is required" })
+    if (!email) {
+      return res
+        .status(400)
+        .json({ message: "Email is required for verification" })
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({
-      $or: [...(email ? [{ email }] : []), ...(phone ? [{ phone }] : [])],
-    })
+    let existingUser = await User.findOne({ email })
 
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists with this email or phone" })
+    if (existingUser && existingUser.isVerified) {
+      return res
+        .status(400)
+        .json({ message: "User already exists with this email" })
     }
 
-    const user = new User({
-      name,
+    const otp = otpGenerator.generate(6, {
+      upperCaseAlphabets: false,
+      specialChars: false,
+      lowerCaseAlphabets: false,
+    })
+    const otpExpires = Date.now() + 10 * 60 * 1000 // 10 minutes
+
+    if (existingUser && !existingUser.isVerified) {
+      existingUser.passwordHash = password
+      existingUser.otp = otp
+      existingUser.otpExpires = otpExpires
+      await existingUser.save()
+    } else {
+      existingUser = new User({
+        name,
+        email,
+        phone,
+        passwordHash: password,
+        batch,
+        center,
+        otp,
+        otpExpires,
+      })
+      await existingUser.save()
+    }
+
+    try {
+      await sendEmail({
+        email: existingUser.email,
+        subject: "Verify your email for Alumni Portal",
+        html: `<p>Your OTP for email verification is: <h1>${otp}</h1> It is valid for 10 minutes.</p>`,
+      })
+    } catch (emailError) {
+      console.error("Email sending error:", emailError)
+      return res
+        .status(500)
+        .json({ message: "Error sending verification email. Please try again." })
+    }
+
+    res.status(201).json({
+      message: "OTP sent to your email. Please verify to complete registration.",
+      email: existingUser.email,
+    })
+  } catch (error) {
+    console.error("Signup error:", error)
+    res.status(500).json({ message: error.message || "Server error" })
+  }
+})
+
+router.post("/verify-otp", async (req, res) => {
+  try {
+    const { email, otp } = req.body
+
+    if (!email || !otp) {
+      return res.status(400).json({ message: "Email and OTP are required" })
+    }
+
+    const user = await User.findOne({
       email,
-      phone,
-      passwordHash: password,
-      batch,
-      center,
+      otp,
+      otpExpires: { $gt: Date.now() },
     })
 
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired OTP" })
+    }
+
+    user.isVerified = true
+    user.otp = undefined
+    user.otpExpires = undefined
     await user.save()
 
     const token = generateToken(user._id)
 
-    res.status(201).json({
+    res.json({
       token,
       user: {
         id: user._id,
@@ -61,8 +128,54 @@ router.post("/signup", async (req, res) => {
       },
     })
   } catch (error) {
-    console.error("Signup error:", error)
-    res.status(500).json({ message: error.message || "Server error" })
+    console.error("OTP verification error:", error)
+    res.status(500).json({ message: "Server error" })
+  }
+})
+
+router.post("/resend-otp", async (req, res) => {
+  try {
+    const { email } = req.body
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" })
+    }
+
+    const user = await User.findOne({ email })
+    if (!user) {
+      return res.status(400).json({ message: "User not found" })
+    }
+    if (user.isVerified) {
+      return res.status(400).json({ message: "Email is already verified" })
+    }
+
+    const otp = otpGenerator.generate(6, {
+      upperCaseAlphabets: false,
+      specialChars: false,
+      lowerCaseAlphabets: false,
+    })
+    const otpExpires = Date.now() + 10 * 60 * 1000 // 10 minutes
+
+    user.otp = otp
+    user.otpExpires = otpExpires
+    await user.save()
+
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: "Resend: Verify your email for Alumni Portal",
+        html: `<p>Your new OTP for email verification is: <h1>${otp}</h1> It is valid for 10 minutes.</p>`,
+      })
+    } catch (emailError) {
+      console.error("Email sending error:", emailError)
+      return res
+        .status(500)
+        .json({ message: "Error sending verification email. Please try again." })
+    }
+
+    res.status(200).json({ message: "New OTP sent to your email." })
+  } catch (error) {
+    console.error("Resend OTP error:", error)
+    res.status(500).json({ message: "Server error" })
   }
 })
 
@@ -82,6 +195,14 @@ router.post("/login", async (req, res) => {
 
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" })
+    }
+
+    if (!user.isVerified) {
+      return res.status(401).json({
+        message: "Email not verified. Please verify your email first.",
+        notVerified: true,
+        email: user.email,
+      })
     }
 
     const isMatch = await user.comparePassword(password)

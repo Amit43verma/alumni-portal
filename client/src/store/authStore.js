@@ -10,6 +10,19 @@ const useAuthStore = create((set, get) => ({
   token: null,
   loading: false,
 
+  // This function will now handle setting user/token from any auth response
+  loginSuccess: (data) => {
+    const { token, user } = data
+
+    localStorage.setItem("token", token)
+    localStorage.setItem("user", JSON.stringify(user))
+
+    // Set default axios header
+    axios.defaults.headers.common["Authorization"] = `Bearer ${token}`
+
+    set({ user, token, loading: false })
+  },
+
   login: async (identifier, password) => {
     set({ loading: true })
     try {
@@ -18,21 +31,22 @@ const useAuthStore = create((set, get) => ({
         password,
       })
 
-      const { token, user } = response.data
+      get().loginSuccess(response.data)
 
-      localStorage.setItem("token", token)
-      localStorage.setItem("user", JSON.stringify(user))
-
-      // Set default axios header
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`
-
-      set({ user, token, loading: false })
       toast.success("Login successful!")
 
       return { success: true }
     } catch (error) {
       set({ loading: false })
       const message = error.response?.data?.message || "Login failed"
+      if (error.response?.data?.notVerified) {
+        toast.error(message, { id: "login-error" })
+        return {
+          success: false,
+          notVerified: true,
+          email: error.response.data.email,
+        }
+      }
       toast.error(message)
       return { success: false, message }
     }
@@ -42,18 +56,9 @@ const useAuthStore = create((set, get) => ({
     set({ loading: true })
     try {
       const response = await axios.post(`${API_URL}/auth/signup`, userData)
-
-      const { token, user } = response.data
-
-      localStorage.setItem("token", token)
-      localStorage.setItem("user", JSON.stringify(user))
-
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`
-
-      set({ user, token, loading: false })
-      toast.success("Account created successfully!")
-
-      return { success: true }
+      set({ loading: false })
+      toast.success(response.data.message || "OTP sent successfully!")
+      return { success: true, ...response.data }
     } catch (error) {
       set({ loading: false })
       const message = error.response?.data?.message || "Signup failed"
@@ -76,14 +81,8 @@ const useAuthStore = create((set, get) => ({
         }
       }
 
-      const { token, user } = response.data
+      get().loginSuccess(response.data)
 
-      localStorage.setItem("token", token)
-      localStorage.setItem("user", JSON.stringify(user))
-
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`
-
-      set({ user, token, loading: false })
       toast.success("Login successful!")
 
       return { success: true }
@@ -103,14 +102,8 @@ const useAuthStore = create((set, get) => ({
         ...additionalData,
       })
 
-      const { token, user } = response.data
+      get().loginSuccess(response.data)
 
-      localStorage.setItem("token", token)
-      localStorage.setItem("user", JSON.stringify(user))
-
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`
-
-      set({ user, token, loading: false })
       toast.success("Account created successfully!")
 
       return { success: true }
