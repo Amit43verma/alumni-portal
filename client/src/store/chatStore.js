@@ -7,6 +7,9 @@ import toast from "react-hot-toast"
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api"
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000"
 
+// Import auth store to get current user
+import { useAuthStore } from "./authStore"
+
 const useChatStore = create((set, get) => ({
   socket: null,
   rooms: [],
@@ -15,6 +18,8 @@ const useChatStore = create((set, get) => ({
   onlineUsers: new Set(),
   loading: false,
   unreadCounts: {},
+  typingUsers: {},
+  messageStatus: {}, // Track message delivery/read status
 
   initializeSocket: () => {
     const token = localStorage.getItem("token")
@@ -26,36 +31,80 @@ const useChatStore = create((set, get) => ({
 
     socket.on("connect", () => {
       console.log("Connected to chat server")
+      // Request the list of online users to sync state
+      socket.emit("getOnlineUsers", (onlineUserIds) => {
+        set({ onlineUsers: new Set(onlineUserIds) })
+      })
     })
 
     socket.on("newMessage", (message) => {
-      set((state) => {
-        // Only add message if it's for the current room
-        if (state.currentRoom && message.roomId === state.currentRoom._id) {
-          return {
-            messages: [...state.messages, message],
-          }
-        }
-        return state
-      })
+      // If user is in the room, add message to state and mark as read
+      if (get().currentRoom?._id === message.roomId) {
+        set((state) => ({ messages: [...state.messages, message] }))
+        get().markMessagesAsRead(message.roomId, [message._id])
+      }
 
-      // Update room's last message and unread count
+      // Show notification if not in current room
+      const room = get().rooms.find(r => r._id === message.roomId)
+      if (room && get().currentRoom?._id !== message.roomId) {
+        const senderName = message.sender?.name || "Someone"
+        const messagePreview = message.text || (message.mediaUrl ? "Shared media" : "New message")
+        toast(`${senderName}: ${messagePreview}`, {
+          duration: 4000,
+          position: "top-right",
+        })
+      }
+    })
+
+    socket.on("roomUpdated", (updatedRoom) => {
       set((state) => {
-        const isCurrentRoom = state.currentRoom && message.roomId === state.currentRoom._id
-        const newCount = isCurrentRoom
-          ? 0
-          : (state.unreadCounts[message.roomId] || 0) + 1
-        console.log(`newMessage for room ${message.roomId}, isCurrentRoom: ${isCurrentRoom}, newCount: ${newCount}`)
+        const currentUserId = useAuthStore.getState().user?.id;
+        const newUnreadCounts = { ...state.unreadCounts };
+        
+        if (updatedRoom.unreadCounts && currentUserId) {
+          const countForCurrentUser = updatedRoom.unreadCounts[currentUserId] || 0;
+          newUnreadCounts[updatedRoom._id] = countForCurrentUser;
+        }
+
         return {
           rooms: state.rooms.map((room) =>
-            room._id === message.roomId ? { ...room, lastMessage: message, updatedAt: new Date() } : room,
+            room._id === updatedRoom._id 
+              ? { ...room, ...updatedRoom, unreadCount: newUnreadCounts[updatedRoom._id] } 
+              : room
           ),
-          unreadCounts: {
-            ...state.unreadCounts,
-            [message.roomId]: newCount,
-          },
-        }
+          unreadCounts: newUnreadCounts,
+        };
+      });
+    })
+
+    socket.on("messageRead", (data) => {
+      set((state) => ({
+        messageStatus: {
+          ...state.messageStatus,
+          [data.messageId]: "read",
+        },
+      }))
+    })
+
+    socket.on("messagesDelivered", (data) => {
+      set((state) => {
+        const newStatus = { ...state.messageStatus }
+        data.messageIds.forEach(messageId => {
+          newStatus[messageId] = "delivered"
+        })
+        return { messageStatus: newStatus }
       })
+    })
+
+    socket.on("userTyping", (data) => {
+      set((state) => ({
+        typingUsers: {
+          ...state.typingUsers,
+          [data.roomId]: data.isTyping
+            ? [...(state.typingUsers[data.roomId] || []), data.userId]
+            : (state.typingUsers[data.roomId] || []).filter(id => id !== data.userId),
+        },
+      }))
     })
 
     socket.on("userOnline", (userId) => {
@@ -92,10 +141,10 @@ const useChatStore = create((set, get) => ({
     try {
       const response = await axios.get(`${API_URL}/chat/rooms`)
       const rooms = response.data.rooms
-      // Initialize unreadCounts for all rooms if not present
+      // Initialize unreadCounts from room data
       const unreadCounts = {}
       rooms.forEach(room => {
-        unreadCounts[room._id] = get().unreadCounts[room._id] || 0
+        unreadCounts[room._id] = room.unreadCount || 0
       })
       set({ rooms, loading: false, unreadCounts })
     } catch (error) {
@@ -150,7 +199,6 @@ const useChatStore = create((set, get) => ({
   loadMessages: async (roomId, page = 1) => {
     set({ loading: true })
     try {
-      // Yes, there is a limit of 50 messages per page when loading messages.
       const response = await axios.get(`${API_URL}/chat/rooms/${roomId}/messages?page=${page}&limit=50`)
       const { messages } = response.data
 
@@ -158,9 +206,35 @@ const useChatStore = create((set, get) => ({
         messages: page === 1 ? messages : [...messages, ...state.messages],
         loading: false,
       }))
+
+      // Mark messages as read when loading
+      if (page === 1 && messages.length > 0) {
+        // Get current user from auth store
+        const currentUser = useAuthStore.getState().user
+        
+        const unreadMessageIds = messages
+          .filter(msg => msg.sender._id !== currentUser?.id)
+          .map(msg => msg._id)
+
+        if (unreadMessageIds.length > 0) {
+          get().markMessagesAsRead(roomId, unreadMessageIds)
+        }
+      }
     } catch (error) {
       set({ loading: false })
       toast.error("Failed to load messages")
+    }
+  },
+
+  markMessagesAsRead: async (roomId, messageIds) => {
+    const { socket } = get()
+    if (socket && messageIds.length > 0) {
+      try {
+        await axios.post(`${API_URL}/chat/rooms/${roomId}/read`, { messageIds })
+        socket.emit("markAsRead", { roomId, messageIds })
+      } catch (error) {
+        console.error("Failed to mark messages as read:", error)
+      }
     }
   },
 
@@ -176,11 +250,17 @@ const useChatStore = create((set, get) => ({
         formData.append("text", text)
         formData.append("media", mediaFile)
 
-        await axios.post(`${API_URL}/chat/rooms/${currentRoom._id}/messages`, formData, {
+        const response = await axios.post(`${API_URL}/chat/rooms/${currentRoom._id}/messages`, formData, {
           headers: {
             "Content-Type": "multipart/form-data",
           },
         })
+
+        // Add message to local state immediately
+        const message = response.data.message
+        set((state) => ({
+          messages: [...state.messages, message],
+        }))
       } else {
         // Send text message via socket
         socket.emit("sendMessage", {
@@ -196,6 +276,20 @@ const useChatStore = create((set, get) => ({
     }
   },
 
+  startTyping: (roomId) => {
+    const { socket } = get()
+    if (socket) {
+      socket.emit("typingStart", roomId)
+    }
+  },
+
+  stopTyping: (roomId) => {
+    const { socket } = get()
+    if (socket) {
+      socket.emit("typingStop", roomId)
+    }
+  },
+
   addMembersToGroup: async (roomId, memberIds) => {
     try {
       const response = await axios.post(`${API_URL}/chat/rooms/${roomId}/members`, {
@@ -206,13 +300,12 @@ const useChatStore = create((set, get) => ({
 
       set((state) => ({
         rooms: state.rooms.map((r) => (r._id === roomId ? room : r)),
-        currentRoom: state.currentRoom?._id === roomId ? room : state.currentRoom,
       }))
 
-      toast.success("Members added successfully")
-      return { success: true }
+      return { success: true, room }
     } catch (error) {
-      toast.error("Failed to add members")
+      const message = error.response?.data?.message || "Failed to add members"
+      toast.error(message)
       return { success: false }
     }
   },
@@ -222,18 +315,28 @@ const useChatStore = create((set, get) => ({
       await axios.delete(`${API_URL}/chat/rooms/${roomId}/leave`)
 
       set((state) => ({
-        rooms: state.rooms.filter((room) => room._id !== roomId),
-        currentRoom: state.currentRoom?._id === roomId ? null : state.currentRoom,
-        messages: state.currentRoom?._id === roomId ? [] : state.messages,
+        rooms: state.rooms.filter((r) => r._id !== roomId),
       }))
 
-      toast.success("Left group successfully")
       return { success: true }
     } catch (error) {
-      toast.error("Failed to leave group")
+      const message = error.response?.data?.message || "Failed to leave group"
+      toast.error(message)
       return { success: false }
     }
   },
+
+  getMessageStatus: (messageId) => {
+    return get().messageStatus[messageId] || "sent"
+  },
+
+  getTypingUsers: (roomId) => {
+    return get().typingUsers[roomId] || []
+  },
+
+  isUserOnline: (userId) => {
+    return get().onlineUsers.has(userId)
+  },
 }))
 
-export { useChatStore }
+export default useChatStore

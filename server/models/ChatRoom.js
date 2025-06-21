@@ -26,6 +26,23 @@ const chatRoomSchema = new mongoose.Schema(
       ref: "Message",
     },
     avatarUrl: String,
+    unreadCounts: {
+      type: Map,
+      of: Number,
+      default: new Map(),
+    },
+    typingUsers: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        startedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   {
     timestamps: true,

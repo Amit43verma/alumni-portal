@@ -2,14 +2,23 @@
 
 import { Link, useLocation } from "react-router-dom"
 import { Home, MessageCircle, Users, Search, User, X } from "lucide-react"
+import useChatStore from "../store/chatStore"
 
 const Sidebar = ({ onClose }) => {
   const location = useLocation()
   const userId = localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user")).id : null
+  const { unreadCounts } = useChatStore()
+
+  const totalUnreadCount = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0)
 
   const menuItems = [
     { path: "/feed", icon: Home, label: "Feed" },
-    { path: "/chat", icon: MessageCircle, label: "Messages" },
+    {
+      path: "/chat",
+      icon: MessageCircle,
+      label: "Messages",
+      notificationCount: totalUnreadCount,
+    },
     { path: "/groups", icon: Users, label: "Groups" },
     { path: "/search", icon: Search, label: "Search" },
     { path: userId ? `/profile/${userId}` : "/login", icon: User, label: "Profile" },
@@ -28,18 +37,23 @@ const Sidebar = ({ onClose }) => {
       {/* Navigation */}
       <nav className="flex-1 p-4">
         <ul className="space-y-2">
-          {menuItems.map(({ path, icon: Icon, label }) => (
+          {menuItems.map(({ path, icon: Icon, label, notificationCount }) => (
             <li key={path}>
               <Link
                 to={path}
                 onClick={onClose}
                 className={`
-                  flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors
-                  ${location.pathname === path ? "bg-primary text-primary-content" : "hover:bg-base-300"}
+                  flex items-center justify-between space-x-3 px-4 py-3 rounded-lg transition-colors
+                  ${location.pathname.startsWith(path) && path !== "/" ? "bg-primary text-primary-content" : "hover:bg-base-300"}
                 `}
               >
-                <Icon size={20} />
-                <span>{label}</span>
+                <div className="flex items-center space-x-3">
+                  <Icon size={20} />
+                  <span>{label}</span>
+                </div>
+                {notificationCount > 0 && (
+                  <span className="badge badge-error text-white">{notificationCount > 99 ? "99+" : notificationCount}</span>
+                )}
               </Link>
             </li>
           ))}

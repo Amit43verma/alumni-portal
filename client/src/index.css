@@ -83,6 +83,18 @@
 .message-bubble {
   max-width: 70%;
   word-wrap: break-word;
+  animation: messageSlideIn 0.3s ease-out;
+}
+
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .message-bubble.own {
@@ -91,6 +103,60 @@
 
 .message-bubble.other {
   margin-right: auto;
+}
+
+/* Typing indicator animation */
+@keyframes typingBounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-10px);
+  }
+}
+
+.typing-dot {
+  animation: typingBounce 1.4s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+/* Read receipt animations */
+.read-receipt {
+  transition: all 0.3s ease;
+}
+
+.read-receipt.sent {
+  opacity: 0.4;
+}
+
+.read-receipt.delivered {
+  opacity: 0.6;
+}
+
+.read-receipt.read {
+  opacity: 1;
+  color: #3b82f6;
+}
+
+/* Online status indicator */
+.online-indicator {
+  transition: all 0.3s ease;
+}
+
+.online-indicator.online {
+  background-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.online-indicator.offline {
+  background-color: #9ca3af;
 }
 
 /* Media preview styles */
@@ -139,6 +205,10 @@
   .mobile-hidden {
     display: none;
   }
+  
+  .message-bubble {
+    max-width: 85%;
+  }
 }
 
 @media (min-width: 769px) {
@@ -176,4 +246,34 @@
 
 [data-theme="dark"] .shadow-xl {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+}
+
+/* Notification styles */
+.notification-enter {
+  animation: notificationSlideIn 0.3s ease-out;
+}
+
+@keyframes notificationSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Unread count badge animation */
+.unread-badge {
+  animation: badgePulse 2s infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
 }

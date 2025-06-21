@@ -13,7 +13,7 @@ router.get("/rooms", authenticate, async (req, res) => {
     const rooms = await ChatRoom.find({
       members: req.user._id,
     })
-      .populate("members", "name avatarUrl")
+      .populate("members", "name avatarUrl isOnline lastSeen")
       .populate("lastMessage")
       .populate({
         path: "lastMessage",
@@ -24,7 +24,16 @@ router.get("/rooms", authenticate, async (req, res) => {
       })
       .sort({ updatedAt: -1 })
 
-    res.json({ rooms })
+    // Add unread counts to each room
+    const roomsWithUnreadCounts = rooms.map(room => {
+      const unreadCount = room.unreadCounts.get(req.user._id.toString()) || 0
+      return {
+        ...room.toObject(),
+        unreadCount,
+      }
+    })
+
+    res.json({ rooms: roomsWithUnreadCounts })
   } catch (error) {
     console.error("Get rooms error:", error)
     res.status(500).json({ message: "Server error" })
@@ -51,8 +60,14 @@ router.post("/rooms", authenticate, async (req, res) => {
       })
 
       if (existingRoom) {
-        await existingRoom.populate("members", "name avatarUrl")
-        return res.json({ room: existingRoom })
+        await existingRoom.populate("members", "name avatarUrl isOnline lastSeen")
+        const unreadCount = existingRoom.unreadCounts.get(req.user._id.toString()) || 0
+        return res.json({ 
+          room: {
+            ...existingRoom.toObject(),
+            unreadCount,
+          }
+        })
       }
     }
 
@@ -64,7 +79,7 @@ router.post("/rooms", authenticate, async (req, res) => {
     })
 
     await room.save()
-    await room.populate("members", "name avatarUrl")
+    await room.populate("members", "name avatarUrl isOnline lastSeen")
 
     res.status(201).json({ room })
   } catch (error) {
@@ -91,13 +106,132 @@ router.get("/rooms/:roomId/messages", authenticate, async (req, res) => {
 
     const messages = await Message.find({ roomId })
       .populate("sender", "name avatarUrl")
+      .populate("readBy.user", "name")
+      .populate("deliveredTo.user", "name")
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
 
+    // Mark messages as read when user loads them
+    const unreadMessageIds = messages
+      .filter(msg => 
+        msg.sender._id.toString() !== req.user._id.toString() &&
+        !msg.readBy.some(read => read.user._id.toString() === req.user._id.toString())
+      )
+      .map(msg => msg._id)
+
+    if (unreadMessageIds.length > 0) {
+      await Message.updateMany(
+        { _id: { $in: unreadMessageIds } },
+        {
+          $push: {
+            readBy: {
+              user: req.user._id,
+              readAt: new Date(),
+            },
+          },
+          $set: { status: "read" },
+        }
+      )
+
+      // Reset unread count for this room
+      room.unreadCounts.set(req.user._id.toString(), 0)
+      await room.save()
+
+      // Emit read receipts via socket
+      const io = req.app.get('io')
+      if (io) {
+        const updatedMessages = await Message.find({ _id: { $in: unreadMessageIds } })
+        updatedMessages.forEach(message => {
+          if (message.sender.toString() !== req.user._id.toString()) {
+            io.to(message.sender.toString()).emit("messageRead", {
+              messageId: message._id,
+              roomId,
+              readBy: req.user._id,
+              readAt: new Date(),
+            })
+          }
+        })
+        
+        // Also emit a room update so the sender's ChatList UI updates
+        const updatedRoom = await ChatRoom.findById(roomId)
+          .populate("members", "name avatarUrl isOnline lastSeen")
+          .populate("lastMessage")
+        
+        if (updatedRoom) {
+            updatedRoom.members.forEach(member => {
+                io.to(member._id.toString()).emit("roomUpdated", updatedRoom);
+            });
+        }
+      }
+    }
+
     res.json({ messages: messages.reverse() })
   } catch (error) {
     console.error("Get messages error:", error)
+    res.status(500).json({ message: "Server error" })
+  }
+})
+
+// Mark messages as read
+router.post("/rooms/:roomId/read", authenticate, async (req, res) => {
+  try {
+    const { roomId } = req.params
+    const { messageIds } = req.body
+
+    // Check if user is member of the room
+    const room = await ChatRoom.findOne({
+      _id: roomId,
+      members: req.user._id,
+    })
+
+    if (!room) {
+      return res.status(403).json({ message: "Access denied" })
+    }
+
+    if (messageIds && messageIds.length > 0) {
+      await Message.updateMany(
+        {
+          _id: { $in: messageIds },
+          roomId,
+          sender: { $ne: req.user._id },
+          "readBy.user": { $ne: req.user._id },
+        },
+        {
+          $push: {
+            readBy: {
+              user: req.user._id,
+              readAt: new Date(),
+            },
+          },
+          $set: { status: "read" },
+        }
+      )
+
+      // Reset unread count for this room
+      room.unreadCounts.set(req.user._id.toString(), 0)
+      await room.save()
+
+      // Emit read receipts via socket
+      const io = req.app.get('io')
+      if (io) {
+        const messages = await Message.find({ _id: { $in: messageIds } })
+        messages.forEach(message => {
+          if (message.sender.toString() !== req.user._id.toString()) {
+            io.to(message.sender.toString()).emit("messageRead", {
+              messageId: message._id,
+              roomId,
+              readBy: req.user._id,
+              readAt: new Date(),
+            })
+          }
+        })
+      }
+    }
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error("Mark as read error:", error)
     res.status(500).json({ message: "Server error" })
   }
 })
@@ -126,6 +260,7 @@ router.post("/rooms/:roomId/messages", authenticate, upload.single("media"), asy
       roomId,
       sender: req.user._id,
       text: text || "",
+      status: "sent",
     }
 
     if (req.file) {
@@ -137,10 +272,39 @@ router.post("/rooms/:roomId/messages", authenticate, upload.single("media"), asy
     await message.save()
     await message.populate("sender", "name avatarUrl")
 
-    // Update room's last message
+    // Update room's last message and unread counts
     room.lastMessage = message._id
     room.updatedAt = new Date()
+    
+    // Increment unread count for all members except sender
+    room.members.forEach(memberId => {
+      if (memberId.toString() !== req.user._id.toString()) {
+        const currentCount = room.unreadCounts.get(memberId.toString()) || 0
+        room.unreadCounts.set(memberId.toString(), currentCount + 1)
+      }
+    })
+    
     await room.save()
+
+    // Emit via socket to all members' personal rooms
+    const io = req.app.get('io')
+    if (io) {
+      // Emit room update
+      const updatedRoom = await ChatRoom.findById(roomId)
+        .populate("members", "name avatarUrl isOnline lastSeen")
+        .populate({
+          path: "lastMessage",
+          populate: {
+            path: "sender",
+            select: "name",
+          },
+        })
+
+      room.members.forEach(memberId => {
+        io.to(memberId.toString()).emit("newMessage", message)
+        io.to(memberId.toString()).emit("roomUpdated", updatedRoom)
+      })
+    }
 
     res.status(201).json({ message })
   } catch (error) {
@@ -170,7 +334,7 @@ router.post("/rooms/:roomId/members", authenticate, async (req, res) => {
     room.members.push(...newMembers)
     await room.save()
 
-    await room.populate("members", "name avatarUrl")
+    await room.populate("members", "name avatarUrl isOnline lastSeen")
 
     res.json({ room })
   } catch (error) {

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { SearchIcon, Filter, MapPin, Calendar, User, MessageCircle, Users } from "lucide-react"
 import { useUserStore } from "../store/userStore"
-import { useChatStore } from "../store/chatStore"
+import useChatStore from "../store/chatStore"
 import { debounce } from "lodash"
 
 const Search = () => {

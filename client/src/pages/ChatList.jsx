@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
-import { Search, Plus, Users } from "lucide-react"
-import { useChatStore } from "../store/chatStore"
+import { Search, Plus, Users, Check, CheckCheck } from "lucide-react"
+import useChatStore from "../store/chatStore"
 import { useUserStore } from "../store/userStore"
 import { useAuthStore } from "../store/authStore"
 
 const ChatList = () => {
   const { user } = useAuthStore()
-  const { rooms, loading, loadRooms, createRoom, unreadCounts } = useChatStore()
+  const { rooms, loading, loadRooms, createRoom, unreadCounts, isUserOnline } = useChatStore()
   const { searchUsers, searchResults } = useUserStore()
   const [showNewChat, setShowNewChat] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -109,6 +109,95 @@ const ChatList = () => {
           </button>
         </div>
 
+        {/* Chat List */}
+        <div className="divide-y divide-base-300">
+          {sortedRooms.map((room) => {
+            const otherUser = getOtherUser(room)
+            const unreadCount = unreadCounts[room._id] || 0
+
+            return (
+              <Link
+                key={room._id}
+                to={`/chat/${room._id}`}
+                className="block hover:bg-base-200 transition-colors"
+              >
+                <div className="flex items-center p-4">
+                  <div className="avatar mr-3 relative">
+                    <div className="w-12 h-12 rounded-full">
+                      {room.isGroup ? (
+                        <div className="bg-primary text-primary-content rounded-full flex items-center justify-center w-full h-full">
+                          <Users size={20} />
+                        </div>
+                      ) : (
+                        <img
+                          src={otherUser?.avatarUrl || "/placeholder.svg?height=48&width=48"}
+                          alt={room.name}
+                        />
+                      )}
+                    </div>
+                    {/* Online indicator */}
+                    {!room.isGroup && otherUser && (
+                      <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-base-100 ${
+                        isUserOnline(otherUser._id) ? 'bg-green-500' : 'bg-gray-400'
+                      }`} />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold truncate">
+                        {room.isGroup ? room.name : otherUser?.name}
+                      </h3>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-base-content/60">
+                          {formatTime(room.lastMessage?.createdAt || room.updatedAt)}
+                        </span>
+                        {unreadCount > 0 && (
+                          <span className="badge badge-primary badge-sm unread-badge">
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-sm text-base-content/60 truncate flex-1">
+                        {formatLastMessage(room)}
+                      </p>
+                      {room.lastMessage && room.lastMessage.sender?._id === user?.id && (
+                        <div className="ml-2">
+                          {room.lastMessage.readBy?.length > 0 ? (
+                            <CheckCheck size={14} className="text-blue-500" />
+                          ) : (
+                            <Check size={14} className="text-base-content/40" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+
+        {sortedRooms.length === 0 && !loading && (
+          <div className="p-8 text-center text-base-content/60">
+            <div className="avatar mb-4">
+              <div className="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center mx-auto">
+                <Users size={32} />
+              </div>
+            </div>
+            <p className="text-lg font-medium mb-2">No conversations yet</p>
+            <p className="text-sm">Start a new chat to connect with your alumni network!</p>
+          </div>
+        )}
+
+        {loading && (
+          <div className="p-8 text-center">
+            <span className="loading loading-spinner loading-lg"></span>
+          </div>
+        )}
+
         {/* New Chat Modal */}
         {showNewChat && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -186,8 +275,11 @@ const ChatList = () => {
                       }`}
                     >
                       <div className="avatar">
-                        <div className="w-10 h-10 rounded-full">
+                        <div className="w-10 h-10 rounded-full relative">
                           <img src={user.avatarUrl || "/placeholder.svg?height=40&width=40"} alt={user.name} />
+                          <div className={`absolute -bottom-1 -right-1 w-2 h-2 rounded-full border border-base-100 ${
+                            isUserOnline(user._id) ? 'bg-green-500' : 'bg-gray-400'
+                          }`} />
                         </div>
                       </div>
                       <div>
@@ -204,63 +296,14 @@ const ChatList = () => {
                 <div className="mt-4 flex justify-end">
                   <button
                     onClick={handleCreateChat}
-                    disabled={selectedUsers.length === 0 || (isGroup && selectedUsers.length < 2)}
+                    disabled={selectedUsers.length === 0}
                     className="btn btn-primary"
                   >
-                    Start Conversation
+                    Create Chat
                   </button>
                 </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Chat List */}
-        {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <span className="loading loading-spinner loading-lg"></span>
-          </div>
-        ) : sortedRooms.length === 0 ? (
-          <div className="text-center py-12 text-base-content/60">
-            <p>No conversations yet</p>
-            <p className="mt-2">Start a new chat to connect with alumni</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-base-300">
-            {sortedRooms.map((room) => {
-              const otherUser = getOtherUser(room)
-              return (
-                <Link
-                  key={room._id}
-                  to={`/chat/${room._id}`}
-                  className="flex items-center p-4 hover:bg-base-200 transition-colors"
-                >
-                  <div className="avatar">
-                    <div className="w-12 h-12 rounded-full">
-                      {room.isGroup ? (
-                        <div className="bg-primary text-primary-content rounded-full flex items-center justify-center">
-                          <Users size={24} />
-                        </div>
-                      ) : (
-                        <img src={otherUser?.avatarUrl || "/placeholder.svg?height=48&width=48"} alt={room.name} />
-                      )}
-                    </div>
-                  </div>
-                  <div className="ml-4 flex-1">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-semibold">{room.isGroup ? room.name : otherUser?.name}</h3>
-                      <span className="text-xs text-base-content/60">
-                        {formatTime(room.updatedAt || room.createdAt)}
-                      </span>
-                    </div>
-                    <p className="text-sm text-base-content/70 line-clamp-1">{formatLastMessage(room)}</p>
-                    {unreadCounts[room._id] > 0 && (
-                      <span className="badge badge-error badge-sm ml-2">{unreadCounts[room._id]}</span>
-                    )}
-                  </div>
-                </Link>
-              )
-            })}
           </div>
         )}
       </div>

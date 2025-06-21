@@ -22,9 +22,10 @@ const userSchema = new mongoose.Schema(
     },
     email: {
       type: String,
+      required: true,
       unique: true,
-      sparse: true,
-      validate: [validator.isEmail, "Invalid email"],
+      trim: true,
+      lowercase: true,
     },
     phone: {
       type: String,
@@ -35,11 +36,9 @@ const userSchema = new mongoose.Schema(
         message: "Invalid phone number",
       },
     },
-    passwordHash: {
+    password: {
       type: String,
-      required: function () {
-        return !this.googleId
-      },
+      required: true,
     },
     googleId: String,
     batch: {
@@ -50,6 +49,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    graduationYear: {
+      type: Number,
+      required: true,
+    },
     avatarUrl: {
       type: String,
       default: "",
@@ -58,6 +61,7 @@ const userSchema = new mongoose.Schema(
     bio: {
       type: String,
       maxlength: 500,
+      default: "",
     },
     skills: [String],
     socialLinks: {
@@ -77,6 +81,18 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
+    lastSeen: {
+      type: Date,
+      default: Date.now,
+    },
+    socketId: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -93,15 +109,15 @@ userSchema.pre("validate", function (next) {
 })
 
 userSchema.methods.comparePassword = async function (password) {
-  return bcrypt.compare(password, this.passwordHash)
+  return bcrypt.compare(password, this.password)
 }
 
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("passwordHash")) return next()
+  if (!this.isModified("password")) return next()
 
   try {
     const salt = await bcrypt.genSalt(10)
-    this.passwordHash = await bcrypt.hash(this.passwordHash, salt)
+    this.password = await bcrypt.hash(this.password, salt)
     next()
   } catch (error) {
     next(error)

@@ -13,8 +13,10 @@ import {
   LogOut,
   MessageCircle,
   X,
+  Check,
+  CheckCheck,
 } from "lucide-react"
-import { useChatStore } from "../store/chatStore"
+import useChatStore from "../store/chatStore"
 import { useAuthStore } from "../store/authStore"
 import { useUserStore } from "../store/userStore"
 
@@ -34,6 +36,11 @@ const ChatRoom = () => {
     leaveGroup,
     rooms,
     loadRooms,
+    startTyping,
+    stopTyping,
+    getTypingUsers,
+    getMessageStatus,
+    isUserOnline,
   } = useChatStore()
   const { searchUsers, searchResults } = useUserStore()
   const [messageText, setMessageText] = useState("")
@@ -48,6 +55,7 @@ const ChatRoom = () => {
   const messagesEndRef = useRef(null)
   const chatContainerRef = useRef(null)
   const shouldScrollToBottomRef = useRef(true)
+  const typingTimeoutRef = useRef(null)
 
   // 1. Ensure rooms are loaded
   useEffect(() => {
@@ -89,6 +97,28 @@ const ChatRoom = () => {
     }
   }, [messages])
 
+  // Handle typing indicators
+  useEffect(() => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+
+    if (messageText.trim()) {
+      startTyping(roomId)
+      typingTimeoutRef.current = setTimeout(() => {
+        stopTyping(roomId)
+      }, 3000)
+    } else {
+      stopTyping(roomId)
+    }
+
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+      }
+    }
+  }, [messageText, roomId, startTyping, stopTyping])
+
   const handleMediaSelect = (e) => {
     const file = e.target.files[0]
     if (file) {
@@ -116,6 +146,7 @@ const ChatRoom = () => {
       setMessageText("")
       setMediaFile(null)
       setMediaPreview(null)
+      stopTyping(roomId)
       // Always scroll to bottom after sending
       shouldScrollToBottomRef.current = true
     } catch (error) {
@@ -199,12 +230,30 @@ const ChatRoom = () => {
     return message.sender._id === user?.id
   }
 
+  const getMessageStatusIcon = (message) => {
+    if (!isOwnMessage(message)) return null
+    
+    const status = getMessageStatus(message._id)
+    
+    switch (status) {
+      case "sent":
+        return <Check size={12} className="text-base-content/40" />
+      case "delivered":
+        return <CheckCheck size={12} className="text-base-content/60" />
+      case "read":
+        return <CheckCheck size={12} className="text-blue-500" />
+      default:
+        return null
+    }
+  }
+
   const getOtherUser = () => {
     if (!currentRoom || currentRoom.isGroup) return null
     return currentRoom.members.find((member) => member._id !== user?.id)
   }
 
   const otherUser = getOtherUser()
+  const typingUsers = getTypingUsers(roomId)
 
   // Handle Escape key and browser back for expanded media
   useEffect(() => {
@@ -296,7 +345,7 @@ const ChatRoom = () => {
             <ArrowLeft size={18} />
           </button>
           <div className="avatar">
-            <div className="w-10 h-10 rounded-full">
+            <div className="w-10 h-10 rounded-full relative">
               {currentRoom?.isGroup ? (
                 <div className="bg-primary text-primary-content rounded-full flex items-center justify-center">
                   <Users size={20} />
@@ -304,12 +353,22 @@ const ChatRoom = () => {
               ) : (
                 <img src={otherUser?.avatarUrl || "/placeholder.svg?height=40&width=40"} alt={currentRoom?.name} />
               )}
+              {/* Online indicator */}
+              {!currentRoom?.isGroup && otherUser && (
+                <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-base-100 ${
+                  isUserOnline(otherUser._id) ? 'bg-green-500' : 'bg-gray-400'
+                }`} />
+              )}
             </div>
           </div>
           <div>
             <div className="font-semibold">{currentRoom?.isGroup ? currentRoom?.name : otherUser?.name}</div>
             <div className="text-xs text-base-content/60">
-              {currentRoom?.isGroup ? `${currentRoom?.members?.length || 0} members` : otherUser?.batch}
+              {currentRoom?.isGroup ? (
+                `${currentRoom?.members?.length || 0} members`
+              ) : (
+                isUserOnline(otherUser?._id) ? "Online" : "Offline"
+              )}
             </div>
           </div>
         </div>
@@ -386,11 +445,14 @@ const ChatRoom = () => {
                   <div className={`flex ${isOwnMessage(message) ? "justify-end" : "justify-start"}`}>
                     {!isOwnMessage(message) && currentRoom?.isGroup && (
                       <div className="avatar mr-2 self-end mb-1">
-                        <div className="w-6 h-6 rounded-full">
+                        <div className="w-6 h-6 rounded-full relative">
                           <img
                             src={message.sender.avatarUrl || "/placeholder.svg?height=24&width=24"}
                             alt={message.sender.name}
                           />
+                          <div className={`absolute -bottom-1 -right-1 w-2 h-2 rounded-full border border-base-100 ${
+                            isUserOnline(message.sender._id) ? 'bg-green-500' : 'bg-gray-400'
+                          }`} />
                         </div>
                       </div>
                     )}
@@ -425,17 +487,39 @@ const ChatRoom = () => {
                       </div>
 
                       <div
-                        className={`text-xs text-base-content/60 mt-1 ${
-                          isOwnMessage(message) ? "text-right" : "text-left"
+                        className={`text-xs text-base-content/60 mt-1 flex items-center gap-1 ${
+                          isOwnMessage(message) ? "justify-end" : "justify-start"
                         }`}
                       >
                         {formatTime(message.createdAt)}
+                        {getMessageStatusIcon(message)}
                       </div>
                     </div>
                   </div>
                 </div>
               )
             })}
+
+            {/* Typing indicator */}
+            {typingUsers.length > 0 && (
+              <div className="flex justify-start">
+                <div className="max-w-xs lg:max-w-md message-bubble other">
+                  <div className="bg-base-200 text-base-content border border-base-300 rounded-lg p-3">
+                    <div className="flex items-center space-x-1">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-base-content/40 rounded-full typing-dot"></div>
+                        <div className="w-2 h-2 bg-base-content/40 rounded-full typing-dot"></div>
+                        <div className="w-2 h-2 bg-base-content/40 rounded-full typing-dot"></div>
+                      </div>
+                      <span className="text-xs text-base-content/60 ml-2">
+                        {typingUsers.length === 1 ? "typing..." : `${typingUsers.length} typing...`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
         )}

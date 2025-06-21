@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { Users, Plus, Search, UserPlus } from "lucide-react"
-import { useChatStore } from "../store/chatStore"
+import useChatStore from "../store/chatStore"
 import { useUserStore } from "../store/userStore"
 
 const Groups = () => {

@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from "react-router-dom"
 import { Mail, Phone, MapPin, Calendar, Edit, Github, Linkedin, Twitter, MessageCircle, Heart } from "lucide-react"
 import { useUserStore } from "../store/userStore"
 import { useAuthStore } from "../store/authStore"
-import { useChatStore } from "../store/chatStore"
+import useChatStore from "../store/chatStore"
 
 const Profile = () => {
   const { id } = useParams()

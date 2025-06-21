@@ -34,6 +34,23 @@ const messageSchema = new mongoose.Schema(
         },
       },
     ],
+    deliveredTo: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        deliveredAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    status: {
+      type: String,
+      enum: ["sent", "delivered", "read"],
+      default: "sent",
+    },
   },
   {
     timestamps: true,

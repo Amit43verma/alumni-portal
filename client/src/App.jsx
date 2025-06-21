@@ -4,7 +4,7 @@ import { useEffect, useState, lazy, Suspense } from "react"
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
 import { Toaster } from "react-hot-toast"
 import { useAuthStore } from "./store/authStore"
-import { useChatStore } from "./store/chatStore"
+import useChatStore from "./store/chatStore"
 import { usePostStore } from "./store/postStore"
 
 // Components
