@@ -246,7 +246,7 @@ const Profile = () => {
                       className="border border-base-300 rounded-lg p-4 hover:bg-base-200/50 transition-colors"
                     >
                       <Link to={`/post/${post._id}`} className="block">
-                        <p className="line-clamp-3 mb-3">{post.content}</p>
+                        <div className="line-clamp-3 mb-3" dangerouslySetInnerHTML={{ __html: post.content }} />
 
                         {/* Show media preview in profile */}
                         {post.mediaUrls && post.mediaUrls.length > 0 && (

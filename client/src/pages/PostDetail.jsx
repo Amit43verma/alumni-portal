@@ -388,7 +388,7 @@ const PostDetail = () => {
 
           {/* Post Content */}
           <div className="mt-4">
-            <p className="text-base-content whitespace-pre-wrap">{currentPost.content}</p>
+            <div dangerouslySetInnerHTML={{ __html: currentPost.content }} />
 
             {/* Media */}
             {currentPost.mediaUrls && currentPost.mediaUrls.length > 0 && (
