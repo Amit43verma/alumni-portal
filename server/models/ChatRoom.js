@@ -17,10 +17,12 @@ const chatRoomSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    admin: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
+    admins: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     lastMessage: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Message",

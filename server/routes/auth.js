@@ -49,7 +49,7 @@ router.post("/signup", async (req, res) => {
     const otpExpires = Date.now() + 10 * 60 * 1000 // 10 minutes
 
     if (existingUser && !existingUser.isVerified) {
-      existingUser.passwordHash = password
+      existingUser.password = password
       existingUser.otp = otp
       existingUser.otpExpires = otpExpires
       await existingUser.save()
@@ -58,7 +58,7 @@ router.post("/signup", async (req, res) => {
         name,
         email,
         phone,
-        passwordHash: password,
+        password,
         batch,
         center,
         otp,

@@ -48,6 +48,7 @@ const ChatRoom = () => {
   const [mediaPreview, setMediaPreview] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showAddMembers, setShowAddMembers] = useState(false)
+  const [showGroupInfo, setShowGroupInfo] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedUsers, setSelectedUsers] = useState([])
   const [notification, setNotification] = useState(null)
@@ -385,6 +386,12 @@ const ChatRoom = () => {
             {currentRoom?.isGroup && (
               <>
                 <li>
+                  <button onClick={() => setShowGroupInfo(true)} className="flex items-center space-x-2">
+                    <Info size={16} />
+                    <span>Group Info</span>
+                  </button>
+                </li>
+                <li>
                   <button onClick={() => setShowAddMembers(true)} className="flex items-center space-x-2">
                     <UserPlus size={16} />
                     <span>Add Members</span>
@@ -645,6 +652,77 @@ const ChatRoom = () => {
                   Add to Group
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Group Info Modal */}
+      {showGroupInfo && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-base-100 rounded-lg shadow-xl w-full max-w-md border border-base-300">
+            <div className="p-4 border-b border-base-300 flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Group Members</h3>
+              <button onClick={() => setShowGroupInfo(false)} className="btn btn-ghost btn-sm">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-4 max-h-96 overflow-y-auto">
+              <ul className="space-y-1">
+                {currentRoom?.members?.map((member) => (
+                  <li key={member._id}>
+                    <Link
+                      to={`/profile/${member._id}`}
+                      onClick={() => setShowGroupInfo(false)}
+                      className="flex items-center justify-between p-2 rounded-lg hover:bg-base-200 transition-colors"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="avatar relative">
+                          <div className="w-10 h-10 rounded-full">
+                            <img src={member.avatarUrl || "/placeholder.svg?height=40&width=40"} alt={member.name} />
+                          </div>
+                          <div
+                            className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-base-100 ${
+                              isUserOnline(member._id) ? "bg-green-500" : "bg-gray-400"
+                            }`}
+                          />
+                        </div>
+                        <span>{member.name}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {currentRoom.admins?.includes(member._id) && (
+                          <span className="badge badge-primary badge-sm">Admin</span>
+                        )}
+                        {currentRoom.admins?.includes(user.id) && member._id !== user.id && (
+                          <div className="dropdown dropdown-left">
+                            <label tabIndex={0} className="btn btn-ghost btn-xs">
+                              <MoreHorizontal size={16} />
+                            </label>
+                            <ul tabIndex={0} className="dropdown-content menu p-2 shadow bg-base-300 rounded-box w-48">
+                              {!currentRoom.admins?.includes(member._id) && (
+                                <li>
+                                  <button onClick={() => promoteToAdmin(currentRoom._id, member._id)}>
+                                    Promote to Admin
+                                  </button>
+                                </li>
+                              )}
+                              <li>
+                                <button
+                                  onClick={() => removeMember(currentRoom._id, member._id)}
+                                  className="text-error"
+                                >
+                                  Remove from Group
+                                </button>
+                              </li>
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>

@@ -51,7 +51,6 @@ const userSchema = new mongoose.Schema(
     },
     graduationYear: {
       type: Number,
-      required: true,
     },
     avatarUrl: {
       type: String,

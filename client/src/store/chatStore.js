@@ -326,6 +326,38 @@ const useChatStore = create((set, get) => ({
     }
   },
 
+  promoteToAdmin: async (roomId, userId) => {
+    try {
+      const response = await axios.post(`${API_URL}/chat/rooms/${roomId}/admins`, { userId })
+      const { room } = response.data
+      set(state => ({
+        rooms: state.rooms.map(r => r._id === roomId ? room : r),
+        currentRoom: state.currentRoom._id === roomId ? room : state.currentRoom,
+      }))
+      toast.success("User promoted to admin")
+      return { success: true, room }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to promote user")
+      return { success: false }
+    }
+  },
+
+  removeMember: async (roomId, memberId) => {
+    try {
+      const response = await axios.delete(`${API_URL}/chat/rooms/${roomId}/members/${memberId}`)
+      const { room } = response.data
+      set(state => ({
+        rooms: state.rooms.map(r => r._id === roomId ? room : r),
+        currentRoom: state.currentRoom._id === roomId ? room : state.currentRoom,
+      }))
+      toast.success("Member removed from group")
+      return { success: true, room }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to remove member")
+      return { success: false }
+    }
+  },
+
   getMessageStatus: (messageId) => {
     return get().messageStatus[messageId] || "sent"
   },

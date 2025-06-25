@@ -75,7 +75,7 @@ router.post("/rooms", authenticate, async (req, res) => {
       name: name || (isGroup ? "Group Chat" : "Direct Chat"),
       members: allMembers,
       isGroup,
-      admin: isGroup ? req.user._id : null,
+      admins: isGroup ? [req.user._id] : [],
     })
 
     await room.save()
@@ -319,14 +319,15 @@ router.post("/rooms/:roomId/members", authenticate, async (req, res) => {
     const { roomId } = req.params
     const { memberIds } = req.body
 
-    const room = await ChatRoom.findOne({
-      _id: roomId,
-      members: req.user._id,
-      isGroup: true,
-    })
+    const room = await ChatRoom.findById(roomId)
 
-    if (!room) {
-      return res.status(403).json({ message: "Access denied or room not found" })
+    if (!room || !room.isGroup) {
+      return res.status(404).json({ message: "Group chat not found" })
+    }
+
+    // Check if user is an admin
+    if (!room.admins.includes(req.user._id)) {
+      return res.status(403).json({ message: "Only admins can add members" })
     }
 
     // Add new members
@@ -339,6 +340,48 @@ router.post("/rooms/:roomId/members", authenticate, async (req, res) => {
     res.json({ room })
   } catch (error) {
     console.error("Add members error:", error)
+    res.status(500).json({ message: "Server error" })
+  }
+})
+
+// Promote a member to admin
+router.post("/rooms/:roomId/admins", authenticate, async (req, res) => {
+  try {
+    const { roomId } = req.params
+    const { userId } = req.body
+    const room = await ChatRoom.findById(roomId)
+
+    if (!room || !room.isGroup) return res.status(404).json({ message: "Group not found" })
+    if (!room.admins.includes(req.user._id)) return res.status(403).json({ message: "Forbidden: Not an admin" })
+    if (!room.members.includes(userId)) return res.status(404).json({ message: "User is not a member" })
+    if (room.admins.includes(userId)) return res.status(400).json({ message: "User is already an admin" })
+
+    room.admins.push(userId)
+    await room.save()
+    await room.populate("members", "name avatarUrl isOnline lastSeen").populate("admins", "name avatarUrl")
+    res.json({ room })
+  } catch (e) {
+    res.status(500).json({ message: "Server error" })
+  }
+})
+
+// Remove member from group
+router.delete("/rooms/:roomId/members/:memberId", authenticate, async (req, res) => {
+  try {
+    const { roomId, memberId } = req.params
+    const room = await ChatRoom.findById(roomId)
+
+    if (!room || !room.isGroup) return res.status(404).json({ message: "Group not found" })
+    if (!room.admins.includes(req.user._id)) return res.status(403).json({ message: "Forbidden: Not an admin" })
+    if (req.user._id.toString() === memberId) return res.status(400).json({ message: "Admin cannot remove themselves" })
+
+    room.members = room.members.filter(id => id.toString() !== memberId)
+    room.admins = room.admins.filter(id => id.toString() !== memberId) // Also remove from admins if they were one
+    
+    await room.save()
+    await room.populate("members", "name avatarUrl isOnline lastSeen").populate("admins", "name avatarUrl")
+    res.json({ room })
+  } catch (e) {
     res.status(500).json({ message: "Server error" })
   }
 })
