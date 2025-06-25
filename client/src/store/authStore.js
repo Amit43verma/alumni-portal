@@ -154,6 +154,13 @@ const useAuthStore = create((set, get) => ({
     localStorage.setItem("user", JSON.stringify(updatedUser))
     set({ user: updatedUser })
   },
+
+  setUser: (updater) => set((state) => {
+    if (typeof updater === "function") {
+      return { user: updater(state.user) };
+    }
+    return { user: updater };
+  }),
 }))
 
 export { useAuthStore }

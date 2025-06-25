@@ -36,6 +36,48 @@ router.get("/", authenticate, async (req, res) => {
   }
 })
 
+// Save or unsave a post
+router.post("/save-post/:postId", authenticate, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const postId = req.params.postId;
+
+    // Check if already saved
+    const user = await User.findById(userId);
+    const isSaved = user.savedPosts.includes(postId);
+
+    let update;
+    let action;
+    if (!isSaved) {
+      update = { $addToSet: { savedPosts: postId } };
+      action = "saved";
+    } else {
+      update = { $pull: { savedPosts: postId } };
+      action = "unsaved";
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(userId, update, { new: true }).select("savedPosts");
+    res.json({ message: `Post ${action} successfully`, savedPosts: updatedUser.savedPosts });
+  } catch (error) {
+    console.error("Save/Unsave post error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get all saved posts for the logged-in user
+router.get("/saved-posts", authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).populate({
+      path: "savedPosts",
+      populate: { path: "author", select: "name avatarUrl" },
+    })
+    res.json({ savedPosts: user.savedPosts })
+  } catch (error) {
+    console.error("Get saved posts error:", error)
+    res.status(500).json({ message: "Server error" })
+  }
+})
+
 // Get user profile
 router.get("/:id", authenticate, async (req, res) => {
   try {

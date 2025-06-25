@@ -1,17 +1,84 @@
 "use client"
 
-import { useState } from "react"
-import { ImageIcon, Video, X } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { ImageIcon, Video, X, Smile } from "lucide-react"
 import { usePostStore } from "../store/postStore"
 import { useAuthStore } from "../store/authStore"
+import ReactQuill from "react-quill"
+import "react-quill/dist/quill.snow.css"
+import Picker from "@emoji-mart/react"
 
 const PostComposer = () => {
   const { createPost } = usePostStore()
   const { user } = useAuthStore()
   const [content, setContent] = useState("")
+  const [textLength, setTextLength] = useState(0)
   const [mediaFiles, setMediaFiles] = useState([])
   const [mediaPreviews, setMediaPreviews] = useState([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showEmoji, setShowEmoji] = useState(false)
+  const quillRef = useRef(null)
+  const emojiPickerRef = useRef(null)
+  const emojiButtonRef = useRef(null)
+
+  useEffect(() => {
+    const tooltips = {
+      ".ql-header": "Text Styles",
+      ".ql-bold": "Bold (Ctrl+B)",
+      ".ql-italic": "Italic (Ctrl+I)",
+      ".ql-underline": "Underline (Ctrl+U)",
+      ".ql-list[value='bullet']": "Bulleted List",
+      ".ql-list[value='ordered']": "Numbered List",
+      ".ql-link": "Insert Link",
+      ".ql-image": "Insert Image",
+    };
+
+    const quillEditor = quillRef.current;
+    if (quillEditor) {
+      const toolbar = quillEditor.getEditor().getModule("toolbar").container;
+      Object.entries(tooltips).forEach(([selector, tip]) => {
+        const button = toolbar.querySelector(selector);
+        if (button) {
+          button.classList.add('tooltip', 'tooltip-bottom');
+          button.setAttribute('data-tip', tip);
+        }
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(event.target) &&
+        emojiButtonRef.current &&
+        !emojiButtonRef.current.contains(event.target)
+      ) {
+        setShowEmoji(false);
+      }
+    }
+
+    function handleEscapeKey(event) {
+        if (event.key === 'Escape') {
+            setShowEmoji(false);
+        }
+    }
+
+    if (showEmoji) {
+        document.addEventListener("mousedown", handleClickOutside);
+        document.addEventListener("keydown", handleEscapeKey);
+    }
+    
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscapeKey);
+    };
+  }, [showEmoji]);
+
+  const handleTextChange = (value, delta, source, editor) => {
+    setContent(value);
+    setTextLength(editor.getText().length - 1); // -1 to account for Quill's trailing newline
+  };
 
   const handleMediaSelect = (e) => {
     const files = Array.from(e.target.files)
@@ -32,6 +99,7 @@ const PostComposer = () => {
       }
       reader.readAsDataURL(file)
     })
+    setShowEmoji(false)
   }
 
   const removeMedia = (index) => {
@@ -43,23 +111,42 @@ const PostComposer = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-
-    if (!content.trim() && mediaFiles.length === 0) {
+    if (!content.replace(/<(.|\n)*?>/g, "").trim() && mediaFiles.length === 0) {
       return
     }
-
     setIsSubmitting(true)
-
     const result = await createPost(content, mediaFiles)
-
     if (result.success) {
       setContent("")
+      setTextLength(0)
       setMediaFiles([])
       setMediaPreviews([])
     }
-
     setIsSubmitting(false)
   }
+
+  const handleEmojiSelect = (emoji) => {
+    const quill = quillRef.current.getEditor()
+    const range = quill.getSelection(true)
+    quill.insertText(range.index, emoji.native)
+    setShowEmoji(false)
+  }
+
+  const modules = {
+    toolbar: {
+      container: [
+        [{ 'header': [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline'],
+        [{ 'list': 'bullet' }, { 'list': 'ordered' }],
+        ['link'],
+      ],
+    },
+    history: {
+      delay: 500,
+      maxStack: 100,
+      userOnly: true,
+    },
+  };
 
   return (
     <div className="card bg-base-100 shadow-lg">
@@ -81,16 +168,22 @@ const PostComposer = () => {
           </div>
 
           {/* Content Input */}
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="What's on your mind?"
-            className="textarea textarea-bordered w-full min-h-[100px] resize-none"
-            maxLength={2000}
-          />
+          <div className="relative mb-2">
+            <ReactQuill
+              ref={quillRef}
+              value={content}
+              onChange={handleTextChange}
+              placeholder="What's on your mind?"
+              modules={modules}
+              theme="snow"
+              maxLength={2000}
+            />
+          </div>
 
           {/* Character Count */}
-          <div className="text-right text-sm text-base-content/60 mt-1">{content.length}/2000</div>
+          <div className="text-right text-sm text-base-content/60 mt-1">
+            {textLength}/2000
+          </div>
 
           {/* Media Previews */}
           {mediaPreviews.length > 0 && (
@@ -118,26 +211,40 @@ const PostComposer = () => {
             </div>
           )}
 
-          {/* Actions */}
+          {/* Actions & Submit */}
           <div className="flex items-center justify-between mt-4">
-            <div className="flex items-center space-x-2">
-              {/* Image Upload */}
-              <label className="btn btn-ghost btn-sm">
+            <div className="flex items-center space-x-1 relative">
+              <label className="btn btn-ghost btn-sm" title="Add image">
                 <ImageIcon size={18} />
                 <input type="file" accept="image/*" multiple onChange={handleMediaSelect} className="hidden" />
               </label>
 
-              {/* Video Upload */}
-              <label className="btn btn-ghost btn-sm">
+              <label className="btn btn-ghost btn-sm" title="Add video">
                 <Video size={18} />
                 <input type="file" accept="video/*" multiple onChange={handleMediaSelect} className="hidden" />
               </label>
+
+              <button
+                ref={emojiButtonRef}
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setShowEmoji((v) => !v)}
+                title="Add emoji"
+              >
+                <Smile size={18} />
+              </button>
+
+              {showEmoji && (
+                <div ref={emojiPickerRef} className="absolute z-50 top-full mt-2">
+                  <Picker onEmojiSelect={handleEmojiSelect} theme="light" />
+                </div>
+              )}
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={(!content.trim() && mediaFiles.length === 0) || isSubmitting}
+              disabled={(!content.replace(/<(.|\n)*?>/g, "").trim() && mediaFiles.length === 0) || isSubmitting}
               className="btn btn-primary"
             >
               {isSubmitting ? (

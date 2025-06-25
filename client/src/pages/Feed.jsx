@@ -2,16 +2,17 @@
 
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
-import { Heart, MessageCircle, Share, MoreHorizontal, Users } from "lucide-react"
+import { Heart, MessageCircle, Share, MoreHorizontal, Users, Bookmark } from "lucide-react"
 import { usePostStore } from "../store/postStore"
 import { useAuthStore } from "../store/authStore"
 import PostComposer from "../components/PostComposer"
 
 const Feed = () => {
   const { posts, loading, hasMore, loadFeed, likePost, deletePost, loadPostLikes, postLikes, joinPost } = usePostStore()
-  const { user } = useAuthStore()
+  const { user, setUser } = useAuthStore()
   const [page, setPage] = useState(1)
   const [showLikesModal, setShowLikesModal] = useState(null)
+  const [saving, setSaving] = useState("")
 
   useEffect(() => {
     loadFeed(1, true)
@@ -44,6 +45,24 @@ const Feed = () => {
   const handleShowLikes = async (postId) => {
     await loadPostLikes(postId)
     setShowLikesModal(postId)
+  }
+
+  const handleSavePost = async (postId) => {
+    setSaving(postId)
+    try {
+      const res = await fetch(`/api/users/save-post/${postId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setUser((prev) => ({ ...prev, savedPosts: data.savedPosts }))
+      }
+    } finally {
+      setSaving("")
+    }
   }
 
   const formatDate = (dateString) => {
@@ -110,7 +129,10 @@ const Feed = () => {
 
               {/* Post Content */}
               <div className="mt-4">
-                <p className="text-base-content whitespace-pre-wrap">{post.content}</p>
+                <div
+                  className="prose max-w-none text-base-content whitespace-pre-wrap"
+                  dangerouslySetInnerHTML={{ __html: post.content }}
+                />
 
                 {/* Media - Always show in feed with standardized sizing */}
                 {post.mediaUrls && post.mediaUrls.length > 0 && (
@@ -189,6 +211,16 @@ const Feed = () => {
                     <MessageCircle size={18} />
                     <span>{post.commentsCount || 0}</span>
                   </Link>
+
+                  <button
+                    onClick={() => handleSavePost(post._id)}
+                    className={`flex items-center space-x-2 btn btn-ghost btn-sm ${user?.savedPosts?.includes(post._id) ? "text-primary" : ""}`}
+                    disabled={saving === post._id}
+                    title={user?.savedPosts?.includes(post._id) ? "Unsave" : "Save"}
+                  >
+                    <Bookmark size={18} className={user?.savedPosts?.includes(post._id) ? "fill-current" : ""} />
+                    <span>{user?.savedPosts?.includes(post._id) ? "Saved" : "Save"}</span>
+                  </button>
 
                   <button className="flex items-center space-x-2 btn btn-ghost btn-sm">
                     <Share size={18} />

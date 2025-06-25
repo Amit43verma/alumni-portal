@@ -1,7 +1,7 @@
 "use client"
 
 import { Link, useLocation } from "react-router-dom"
-import { Home, MessageCircle, Users, Search, User, X } from "lucide-react"
+import { Home, MessageCircle, Users, Search, User, X, Bookmark } from "lucide-react"
 import useChatStore from "../store/chatStore"
 
 const Sidebar = ({ onClose }) => {
@@ -21,6 +21,7 @@ const Sidebar = ({ onClose }) => {
     },
     { path: "/groups", icon: Users, label: "Groups" },
     { path: "/search", icon: Search, label: "Search" },
+    { path: "/saved-posts", icon: Bookmark, label: "Saved Posts" },
     { path: userId ? `/profile/${userId}` : "/login", icon: User, label: "Profile" },
   ]
 

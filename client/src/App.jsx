@@ -23,6 +23,7 @@ const ChatRoom = lazy(() => import("./pages/ChatRoom"))
 const Groups = lazy(() => import("./pages/Groups"))
 const Search = lazy(() => import("./pages/Search"))
 const OtpVerification = lazy(() => import("./pages/OtpVerification"))
+const SavedPosts = lazy(() => import("./pages/SavedPosts"))
 
 // Loading component
 const LoadingPage = () => (
@@ -86,6 +87,7 @@ function App() {
               <Route path="chat/:roomId" element={<ChatRoom />} />
               <Route path="groups" element={<Groups />} />
               <Route path="search" element={<Search />} />
+              <Route path="saved-posts" element={<SavedPosts />} />
             </Route>
           </Routes>
         </Suspense>
