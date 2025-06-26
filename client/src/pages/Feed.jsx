@@ -56,10 +56,25 @@ const Feed = () => {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       })
-      const data = await res.json()
-      if (res.ok) {
-        setUser((prev) => ({ ...prev, savedPosts: data.savedPosts }))
+      let data
+      try {
+        data = await res.json()
+      } catch (jsonErr) {
+        console.error("Failed to parse JSON:", jsonErr)
+        const text = await res.text()
+        console.error("Raw response text:", text)
+        alert(`Failed to parse server response. Status: ${res.status}. Raw: ${text}`)
+        return
       }
+      if (!res.ok) {
+        console.error("API error:", data)
+        alert(`Error: ${data?.message || 'Unknown error'} (Status: ${res.status})`)
+        return
+      }
+      setUser((prev) => ({ ...prev, savedPosts: data.savedPosts }))
+    } catch (err) {
+      console.error("Network or unexpected error:", err)
+      alert(`Network or unexpected error: ${err.message}`)
     } finally {
       setSaving("")
     }

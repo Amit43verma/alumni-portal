@@ -38,7 +38,13 @@ const io = new Server(httpServer, {
 });
 
 // Middleware
-app.use(cors())
+app.use(cors({
+  origin: [
+    "https://alumni-portal-frontend-vdvb.onrender.com",
+    "http://localhost:3000"
+  ],
+  credentials: true
+}))
 app.use(express.json())
 app.use("/uploads", express.static("uploads"))
 
