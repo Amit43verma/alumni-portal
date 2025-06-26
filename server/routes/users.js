@@ -5,6 +5,33 @@ const upload = require("../middleware/upload")
 
 const router = express.Router()
 
+// Get all saved posts for the logged-in user
+router.get("/saved-posts", authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).populate({
+      path: "savedPosts",
+      populate: { path: "author", select: "name avatarUrl" },
+    })
+    res.json({ savedPosts: user.savedPosts })
+  } catch (error) {
+    console.error("Get saved posts error:", error)
+    res.status(500).json({ message: "Server error" })
+  }
+})
+
+// Get all batches and centers for filters
+router.get("/meta/options", authenticate, async (req, res) => {
+  try {
+    const batches = await User.distinct("batch")
+    const centers = await User.distinct("center")
+
+    res.json({ batches, centers })
+  } catch (error) {
+    console.error("Get meta options error:", error)
+    res.status(500).json({ message: "Server error" })
+  }
+})
+
 // Search users
 router.get("/", authenticate, async (req, res) => {
   try {
@@ -63,20 +90,6 @@ router.post("/save-post/:postId", authenticate, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-// Get all saved posts for the logged-in user
-router.get("/saved-posts", authenticate, async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id).populate({
-      path: "savedPosts",
-      populate: { path: "author", select: "name avatarUrl" },
-    })
-    res.json({ savedPosts: user.savedPosts })
-  } catch (error) {
-    console.error("Get saved posts error:", error)
-    res.status(500).json({ message: "Server error" })
-  }
-})
 
 // Get user profile
 router.get("/:id", authenticate, async (req, res) => {
@@ -146,19 +159,6 @@ router.put("/:id", authenticate, upload.single("avatar"), async (req, res) => {
   } catch (error) {
     console.error("Update user error:", error)
     res.status(500).json({ message: error.message || "Server error" })
-  }
-})
-
-// Get all batches and centers for filters
-router.get("/meta/options", authenticate, async (req, res) => {
-  try {
-    const batches = await User.distinct("batch")
-    const centers = await User.distinct("center")
-
-    res.json({ batches, centers })
-  } catch (error) {
-    console.error("Get meta options error:", error)
-    res.status(500).json({ message: "Server error" })
   }
 })
 

@@ -42,17 +42,17 @@ app.use(cors())
 app.use(express.json())
 app.use("/uploads", express.static("uploads"))
 
-// Database connection
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.error("MongoDB connection error:", err))
-
 // Routes
 app.use("/api/auth", authRoutes)
 app.use("/api/users", userRoutes)
 app.use("/api/posts", postRoutes)
 app.use("/api/chat", chatRoutes)
+
+// Database connection
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.error("MongoDB connection error:", err))
 
 // Attach io to app for access in routes
 app.set('io', io)
