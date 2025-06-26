@@ -7,6 +7,8 @@ import { usePostStore } from "../store/postStore"
 import { useAuthStore } from "../store/authStore"
 import PostComposer from "../components/PostComposer"
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api"
+
 const Feed = () => {
   const { posts, loading, hasMore, loadFeed, likePost, deletePost, loadPostLikes, postLikes, joinPost } = usePostStore()
   const { user, setUser } = useAuthStore()
@@ -50,7 +52,7 @@ const Feed = () => {
   const handleSavePost = async (postId) => {
     setSaving(postId)
     try {
-      const res = await fetch(`/api/users/save-post/${postId}`, {
+      const res = await fetch(`${API_URL}/users/save-post/${postId}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,

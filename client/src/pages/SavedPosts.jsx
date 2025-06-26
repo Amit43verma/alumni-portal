@@ -4,6 +4,8 @@ import { Heart, MessageCircle, Bookmark } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
 import { usePostStore } from "../store/postStore"
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 const SavedPosts = () => {
   const { user, setUser } = useAuthStore()
   const { likePost } = usePostStore()
@@ -15,7 +17,7 @@ const SavedPosts = () => {
   useEffect(() => {
     const fetchSavedPosts = async () => {
       setLoading(true)
-      const res = await fetch("/api/users/saved-posts", {
+      const res = await fetch(`${API_URL}/users/saved-posts`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
@@ -30,7 +32,7 @@ const SavedPosts = () => {
   const handleSavePost = async (postId) => {
     setSaving(postId)
     try {
-      const res = await fetch(`/api/users/save-post/${postId}`, {
+      const res = await fetch(`${API_URL}/users/save-post/${postId}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -151,7 +153,7 @@ const SavedPosts = () => {
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default SavedPosts 
+export default SavedPosts;

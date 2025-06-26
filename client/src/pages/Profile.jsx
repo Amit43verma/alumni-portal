@@ -7,6 +7,8 @@ import { useUserStore } from "../store/userStore"
 import { useAuthStore } from "../store/authStore"
 import useChatStore from "../store/chatStore"
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 const Profile = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -27,7 +29,7 @@ const Profile = () => {
         if (profile) {
           // Fetch user posts from posts API
           try {
-            const response = await fetch(`/api/posts/user/${id}`, {
+            const response = await fetch(`${API_URL}/posts/user/${id}`, {
               headers: {
                 Authorization: `Bearer ${localStorage.getItem("token")}`,
               },
