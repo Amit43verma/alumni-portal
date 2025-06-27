@@ -110,7 +110,7 @@ router.post("/verify-otp", async (req, res) => {
     user.isVerified = true
     user.otp = undefined
     user.otpExpires = undefined
-    await user.save()
+    await user.save({ validateBeforeSave: false })
 
     const token = generateToken(user._id)
 
@@ -156,7 +156,7 @@ router.post("/resend-otp", async (req, res) => {
 
     user.otp = otp
     user.otpExpires = otpExpires
-    await user.save()
+    await user.save({ validateBeforeSave: false })
 
     try {
       await sendEmail({
@@ -359,7 +359,7 @@ router.post("/forgot-password", async (req, res) => {
     const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     user.otp = otp;
     user.otpExpires = otpExpires;
-    await user.save();
+    await user.save({ validateBeforeSave: false });
     try {
       await sendEmail({
         email: user.email,
