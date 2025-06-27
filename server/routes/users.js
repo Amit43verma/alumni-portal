@@ -121,6 +121,11 @@ router.put("/:id", authenticate, upload.single("avatar"), async (req, res) => {
       updates.avatarUrl = req.file.path // Cloudinary URL
     }
 
+    // If phone is an empty string, set to null
+    if (typeof updates.phone === "string" && updates.phone.trim() === "") {
+      updates.phone = null;
+    }
+
     // Parse experiences if it's a string
     if (updates.experiences && typeof updates.experiences === "string") {
       updates.experiences = JSON.parse(updates.experiences)

@@ -24,6 +24,8 @@ const Groups = lazy(() => import("./pages/Groups"))
 const Search = lazy(() => import("./pages/Search"))
 const OtpVerification = lazy(() => import("./pages/OtpVerification"))
 const SavedPosts = lazy(() => import("./pages/SavedPosts"))
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"))
+const ResetPassword = lazy(() => import("./pages/ResetPassword"))
 
 // Loading component
 const LoadingPage = () => (
@@ -69,6 +71,8 @@ function App() {
             <Route path="/login" element={user ? <Navigate to="/feed" /> : <Login />} />
             <Route path="/signup" element={user ? <Navigate to="/feed" /> : <Signup />} />
             <Route path="/verify-otp" element={<OtpVerification />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             <Route
               path="/"

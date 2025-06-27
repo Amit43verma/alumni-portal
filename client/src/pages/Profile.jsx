@@ -154,7 +154,7 @@ const Profile = () => {
                     <span>{currentProfile.email}</span>
                   </div>
                 )}
-                {currentProfile.phone && (
+                {currentProfile.phone && currentProfile.phone.trim() !== "" && (
                   <div className="flex items-center space-x-2">
                     <Phone size={18} className="text-base-content/70" />
                     <span>{currentProfile.phone}</span>

@@ -31,10 +31,6 @@ const userSchema = new mongoose.Schema(
       type: String,
       unique: true,
       sparse: true,
-      validate: {
-        validator: (v) => validator.isMobilePhone(v, "any"),
-        message: "Invalid phone number",
-      },
     },
     password: {
       type: String,
@@ -103,15 +99,6 @@ const userSchema = new mongoose.Schema(
     timestamps: true,
   },
 )
-
-// Ensure at least email or phone is provided
-userSchema.pre("validate", function (next) {
-  if (!this.email && !this.phone) {
-    next(new Error("Either email or phone number is required"))
-  } else {
-    next()
-  }
-})
 
 userSchema.methods.comparePassword = async function (password) {
   return bcrypt.compare(password, this.password)

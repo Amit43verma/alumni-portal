@@ -11,7 +11,7 @@ const Signup = () => {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [contactType, setContactType] = useState("email") // 'email' or 'phone'
+  const [contactType, setContactType] = useState("email") // Remove phone toggle
 
   const {
     register,
@@ -27,22 +27,13 @@ const Signup = () => {
       password: data.password,
       batch: data.batch,
       center: data.center,
+      email: data.contact, // always email
     }
-
-    if (contactType === "email") {
-      userData.email = data.contact
-    } else {
-      // For now, we only support email verification
-      alert("Phone number signup is not supported yet for OTP verification.")
-      return
-    }
-
     const result = await signup(userData)
     if (result.success) {
       navigate("/verify-otp", { state: { email: userData.email } })
     } else {
       console.error("Signup failed:", result.message)
-      // Display error to user
     }
   }
 
@@ -85,47 +76,18 @@ const Signup = () => {
             {/* Contact Type Toggle */}
             <div className="form-control">
               <label className="label">
-                <span className="label-text">Contact Information</span>
+                <span className="label-text">Email</span>
               </label>
-              <div className="flex bg-base-200 rounded-lg p-1 mb-3">
-                <button
-                  type="button"
-                  onClick={() => setContactType("email")}
-                  className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-colors ${
-                    contactType === "email" ? "bg-base-100 shadow-sm" : ""
-                  }`}
-                >
-                  <Mail size={16} />
-                  <span>Email</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setContactType("phone")}
-                  disabled // Disable phone option for now
-                  className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-colors ${
-                    contactType === "phone" ? "bg-base-100 shadow-sm" : ""
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  <Phone size={16} />
-                  <span>Phone</span>
-                </button>
-              </div>
               <input
-                type={contactType === "email" ? "email" : "tel"}
-                placeholder={contactType === "email" ? "Enter your email" : "Enter your phone number"}
+                type="email"
+                placeholder="Enter your email"
                 className={`input input-bordered ${errors.contact ? "input-error" : ""}`}
                 {...register("contact", {
-                  required: `${contactType === "email" ? "Email" : "Phone number"} is required`,
-                  pattern:
-                    contactType === "email"
-                      ? {
-                          value: /^\S+@\S+$/i,
-                          message: "Invalid email address",
-                        }
-                      : {
-                          value: /^[+]?[1-9][\d]{0,15}$/,
-                          message: "Invalid phone number",
-                        },
+                  required: "Email is required",
+                  pattern: {
+                    value: /^\S+@\S+$/i,
+                    message: "Invalid email address",
+                  },
                 })}
               />
               {errors.contact && (

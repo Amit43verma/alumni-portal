@@ -17,7 +17,7 @@ const generateToken = (userId) => {
 // Signup
 router.post("/signup", async (req, res) => {
   try {
-    const { name, email, phone, password, batch, center } = req.body
+    const { name, email, password, batch, center } = req.body
 
     // Validate required fields
     if (!name || !password || !batch || !center) {
@@ -57,7 +57,6 @@ router.post("/signup", async (req, res) => {
       existingUser = new User({
         name,
         email,
-        phone,
         password,
         batch,
         center,
@@ -182,16 +181,14 @@ router.post("/resend-otp", async (req, res) => {
 // Login
 router.post("/login", async (req, res) => {
   try {
-    const { identifier, password } = req.body // identifier can be email or phone
+    const { identifier, password } = req.body // identifier is now only email
 
     if (!identifier || !password) {
-      return res.status(400).json({ message: "Email/phone and password are required" })
+      return res.status(400).json({ message: "Email and password are required" })
     }
 
-    // Find user by email or phone
-    const user = await User.findOne({
-      $or: [{ email: identifier }, { phone: identifier }],
-    })
+    // Find user by email only
+    const user = await User.findOne({ email: identifier })
 
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" })
@@ -342,5 +339,64 @@ router.get("/me", authenticate, async (req, res) => {
     },
   })
 })
+
+// Forgot Password - send OTP to email
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const otp = otpGenerator.generate(6, {
+      upperCaseAlphabets: false,
+      specialChars: false,
+      lowerCaseAlphabets: false,
+    });
+    const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    user.otp = otp;
+    user.otpExpires = otpExpires;
+    await user.save();
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: "Password Reset OTP for Alumni Portal",
+        html: `<p>Your OTP for password reset is: <h1>${otp}</h1> It is valid for 10 minutes.</p>`,
+      });
+    } catch (emailError) {
+      console.error("Email sending error:", emailError);
+      return res.status(500).json({ message: "Error sending OTP email. Please try again." });
+    }
+    res.status(200).json({ message: "OTP sent to your email for password reset." });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Reset Password - verify OTP and set new password
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: "Email, OTP, and new password are required" });
+    }
+    const user = await User.findOne({ email, otp, otpExpires: { $gt: Date.now() } });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+    user.password = newPassword;
+    user.otp = undefined;
+    user.otpExpires = undefined;
+    await user.save();
+    res.status(200).json({ message: "Password has been reset successfully." });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 module.exports = router

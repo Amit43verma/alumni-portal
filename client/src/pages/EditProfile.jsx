@@ -124,7 +124,7 @@ const EditProfile = () => {
     const formData = new FormData()
     formData.append("name", data.name)
     formData.append("email", data.email)
-    formData.append("phone", data.phone)
+    formData.append("phone", data.phone || "")
     formData.append("batch", data.batch)
     formData.append("center", data.center)
     formData.append("bio", data.bio)
@@ -293,7 +293,7 @@ const EditProfile = () => {
                 {errors.email && <span className="text-error text-sm mt-1">{errors.email.message}</span>}
               </div>
 
-              {/* Phone */}
+              {/* Phone (optional) */}
               <div className="form-control">
                 <label className="label">
                   <span className="label-text">Phone</span>

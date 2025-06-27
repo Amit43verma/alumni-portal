@@ -410,24 +410,16 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: "Something went wrong!" })
 })
 
-// Serve static files from the React app in production
-if (process.env.NODE_ENV === 'production') {
-  const path = require('path');
-  // Set static folder
-  app.use(express.static(path.join(__dirname, '../client/dist')));
-  
-  // Handle React routing, return all requests to React app
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
-  });
-} else {
-  // 404 handler for development
-  app.use("*", (req, res) => {
-    res.status(404).json({ message: "Route not found" });
-  });
-}
+// 404 handler
+app.use("*", (req, res) => {
+  res.status(404).json({ message: "Route not found" })
+})
 
 const PORT = process.env.PORT || 5000
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
+
+
+// can you add functionality in which if a user forgot its password , user can reset the password using email via sending a otp.
+// also remove login and signup funtionality using phone

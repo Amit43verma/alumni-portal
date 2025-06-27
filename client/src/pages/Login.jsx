@@ -46,47 +46,20 @@ const Login = () => {
           {/* Login Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Login Type Toggle */}
-            <div className="flex bg-base-200 rounded-lg p-1">
-              <button
-                type="button"
-                onClick={() => setLoginType("email")}
-                className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-colors ${
-                  loginType === "email" ? "bg-base-100 shadow-sm" : ""
-                }`}
-              >
-                <Mail size={16} />
-                <span>Email</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setLoginType("phone")}
-                className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-colors ${
-                  loginType === "phone" ? "bg-base-100 shadow-sm" : ""
-                }`}
-              >
-                <Phone size={16} />
-                <span>Phone</span>
-              </button>
-            </div>
-
-            {/* Email/Phone Input */}
             <div className="form-control">
               <label className="label">
-                <span className="label-text">{loginType === "email" ? "Email Address" : "Phone Number"}</span>
+                <span className="label-text">Email Address</span>
               </label>
               <input
-                type={loginType === "email" ? "email" : "tel"}
-                placeholder={loginType === "email" ? "Enter your email" : "Enter your phone number"}
+                type="email"
+                placeholder="Enter your email"
                 className={`input input-bordered ${errors.identifier ? "input-error" : ""}`}
                 {...register("identifier", {
-                  required: `${loginType === "email" ? "Email" : "Phone number"} is required`,
-                  pattern:
-                    loginType === "email"
-                      ? {
-                          value: /^\S+@\S+$/i,
-                          message: "Invalid email address",
-                        }
-                      : undefined,
+                  required: "Email is required",
+                  pattern: {
+                    value: /^\S+@\S+$/i,
+                    message: "Invalid email address",
+                  },
                 })}
               />
               {errors.identifier && (
@@ -174,6 +147,11 @@ const Login = () => {
             <Link to="/signup" className="link link-primary">
               Sign up here
             </Link>
+            <div className="mt-2">
+              <Link to="/forgot-password" className="link link-secondary">
+                Forgot Password?
+              </Link>
+            </div>
           </div>
         </div>
       </div>
