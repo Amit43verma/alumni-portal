@@ -1,0 +1,16 @@
+{
+  "name": "alumni-portal",
+  "version": "1.0.0",
+  "description": "Alumni Portal - MERN Stack Application",
+  "scripts": {
+    "install-all": "npm install && cd client && npm install && cd ../server && npm install",
+    "client": "cd client && npm run dev",
+    "server": "cd server && npm run dev",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "heroku-postbuild": "NPM_CONFIG_PRODUCTION=false npm run install-all && npm run build"
+  },
+  "keywords": ["MERN", "Alumni", "Portal", "React", "Node", "MongoDB"],
+  "author": "",
+  "license": "ISC"
+}
