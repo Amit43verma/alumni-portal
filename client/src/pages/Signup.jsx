@@ -104,7 +104,7 @@ const Signup = () => {
               </label>
               <input
                 type="text"
-                placeholder="e.g., 2020-2024"
+                placeholder="e.g., 2024-2025"
                 className={`input input-bordered ${errors.batch ? "input-error" : ""}`}
                 {...register("batch", {
                   required: "Batch is required",

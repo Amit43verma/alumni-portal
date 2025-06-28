@@ -29,7 +29,7 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+    <div className="flex items-center justify-center min-h-screen bg-base-200">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-center text-gray-800">Forgot Password</h2>
         <p className="text-center text-gray-600">
@@ -47,7 +47,7 @@ const ForgotPassword = () => {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-2  focus:ring-indigo-600 focus:border-indigo-600 focus:ring-offset-1 focus:ring-offset-white"
               placeholder="Enter your email"
             />
           </div>
