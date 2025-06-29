@@ -57,7 +57,7 @@ const Login = () => {
                 {...register("identifier", {
                   required: "Email is required",
                   pattern: {
-                    value: /^\S+@\S+$/i,
+                    value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
                     message: "Invalid email address",
                   },
                 })}
@@ -82,8 +82,15 @@ const Login = () => {
                   {...register("password", {
                     required: "Password is required",
                     minLength: {
-                      value: 6,
-                      message: "Password must be at least 6 characters",
+                      value: 8,
+                      message: "Password must be at least 8 characters",
+                    },
+                    validate: (value) => {
+                      if (!/[A-Z]/.test(value)) return "Must include an uppercase letter";
+                      if (!/[a-z]/.test(value)) return "Must include a lowercase letter";
+                      if (!/[0-9]/.test(value)) return "Must include a digit";
+                      if (!/[^A-Za-z0-9]/.test(value)) return "Must include a special character";
+                      return true;
                     },
                   })}
                 />
@@ -116,9 +123,9 @@ const Login = () => {
           </form>
 
           {/* Divider */}
-          <div className="divider my-6">OR</div>
+          {/* <div className="divider my-6">OR</div> */}
 
-          {/* Google Login */}
+          {/* Google Login
           <button onClick={handleGoogleLogin} className="btn btn-outline w-full">
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
               <path
@@ -140,6 +147,7 @@ const Login = () => {
             </svg>
             Continue with Google
           </button>
+           */}
 
           {/* Sign Up Link */}
           <div className="text-center mt-6">
