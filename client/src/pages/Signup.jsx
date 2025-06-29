@@ -140,10 +140,10 @@ const Signup = () => {
                   {...register("batch", {
                     required: "Batch is required",
                     validate: (value) => {
-                      const match = value.match(/^(19|20)\d{2}-(19|20)\d{2}$/);
+                      const match = value.match(/^(\d{4})-(\d{4})$/);
                       if (!match) return "Batch must be in format YYYY-YYYY";
-                      const start = parseInt(match[1] + match[2]);
-                      const end = parseInt(match[3] + match[4]);
+                      const start = parseInt(match[1]);
+                      const end = parseInt(match[2]);
                       if (end !== start + 1) return "Batch years must be consecutive";
                       if (start < 1950 || end > currentYear) return "Batch years out of range";
                       if (end > currentYear + 1) return "Batch cannot be in the future";
