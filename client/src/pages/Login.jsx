@@ -11,6 +11,7 @@ const Login = () => {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [loginType, setLoginType] = useState("email") // 'email' or 'phone'
+  const [loginError, setLoginError] = useState("")
 
   const {
     register,
@@ -19,11 +20,12 @@ const Login = () => {
   } = useForm()
 
   const onSubmit = async (data) => {
+    setLoginError("")
     const result = await login(data.identifier, data.password)
     if (result.notVerified) {
       navigate("/verify-otp", { state: { email: result.email } })
     } else if (!result.success) {
-      console.error("Login failed:", result.message)
+      setLoginError("Invalid credentials")
     }
   }
 
@@ -81,17 +83,6 @@ const Login = () => {
                   className={`input input-bordered w-full pr-10 ${errors.password ? "input-error" : ""}`}
                   {...register("password", {
                     required: "Password is required",
-                    minLength: {
-                      value: 8,
-                      message: "Password must be at least 8 characters",
-                    },
-                    validate: (value) => {
-                      if (!/[A-Z]/.test(value)) return "Must include an uppercase letter";
-                      if (!/[a-z]/.test(value)) return "Must include a lowercase letter";
-                      if (!/[0-9]/.test(value)) return "Must include a digit";
-                      if (!/[^A-Za-z0-9]/.test(value)) return "Must include a special character";
-                      return true;
-                    },
                   })}
                 />
                 <button
@@ -102,7 +93,7 @@ const Login = () => {
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
-              {errors.password && (
+              {errors.password && errors.password.type === 'required' && (
                 <label className="label">
                   <span className="label-text-alt text-error">{errors.password.message}</span>
                 </label>
@@ -121,6 +112,10 @@ const Login = () => {
               )}
             </button>
           </form>
+
+          {loginError && (
+            <div className="text-error text-sm mt-2">{loginError}</div>
+          )}
 
           {/* Divider */}
           {/* <div className="divider my-6">OR</div> */}
