@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken")
 const { OAuth2Client } = require("google-auth-library")
 const otpGenerator = require("otp-generator")
 const User = require("../models/User")
+const PendingUser = require("../models/PendingUser")
 const sendEmail = require("../utils/email")
 const { authenticate } = require("../middleware/auth")
 
@@ -32,14 +33,16 @@ router.post("/signup", async (req, res) => {
         .json({ message: "Email is required for verification" })
     }
 
-    // Check if user already exists
+    // Check if user already exists and is verified
     let existingUser = await User.findOne({ email })
-
     if (existingUser && existingUser.isVerified) {
       return res
         .status(400)
         .json({ message: "User already exists with this email" })
     }
+
+    // Remove any previous pending user for this email
+    await PendingUser.deleteOne({ email })
 
     const otp = otpGenerator.generate(6, {
       upperCaseAlphabets: false,
@@ -48,27 +51,21 @@ router.post("/signup", async (req, res) => {
     })
     const otpExpires = Date.now() + 10 * 60 * 1000 // 10 minutes
 
-    if (existingUser && !existingUser.isVerified) {
-      existingUser.password = password
-      existingUser.otp = otp
-      existingUser.otpExpires = otpExpires
-      await existingUser.save()
-    } else {
-      existingUser = new User({
-        name,
-        email,
-        password,
-        batch,
-        center,
-        otp,
-        otpExpires,
-      })
-      await existingUser.save()
-    }
+    // Store pending user
+    const pendingUser = new PendingUser({
+      name,
+      email,
+      password,
+      batch,
+      center,
+      otp,
+      otpExpires,
+    })
+    await pendingUser.save()
 
     try {
       await sendEmail({
-        email: existingUser.email,
+        email: pendingUser.email,
         subject: "Verify your email for Alumni Portal",
         html: `<p>Your OTP for email verification is: <h1>${otp}</h1> It is valid for 10 minutes.</p>`,
       })
@@ -81,7 +78,7 @@ router.post("/signup", async (req, res) => {
 
     res.status(201).json({
       message: "OTP sent to your email. Please verify to complete registration.",
-      email: existingUser.email,
+      email: pendingUser.email,
     })
   } catch (error) {
     console.error("Signup error:", error)
@@ -97,20 +94,37 @@ router.post("/verify-otp", async (req, res) => {
       return res.status(400).json({ message: "Email and OTP are required" })
     }
 
-    const user = await User.findOne({
+    // Find pending user
+    const pendingUser = await PendingUser.findOne({
       email,
       otp,
       otpExpires: { $gt: Date.now() },
     })
 
-    if (!user) {
+    if (!pendingUser) {
       return res.status(400).json({ message: "Invalid or expired OTP" })
     }
 
-    user.isVerified = true
-    user.otp = undefined
-    user.otpExpires = undefined
-    await user.save({ validateBeforeSave: false })
+    // Check if user already exists and is verified (shouldn't happen, but for safety)
+    let existingUser = await User.findOne({ email })
+    if (existingUser && existingUser.isVerified) {
+      await PendingUser.deleteOne({ email })
+      return res.status(400).json({ message: "User already exists with this email" })
+    }
+
+    // Create user in main User collection
+    const user = new User({
+      name: pendingUser.name,
+      email: pendingUser.email,
+      password: pendingUser.password,
+      batch: pendingUser.batch,
+      center: pendingUser.center,
+      isVerified: true,
+    })
+    await user.save()
+
+    // Remove pending user
+    await PendingUser.deleteOne({ email })
 
     const token = generateToken(user._id)
 
